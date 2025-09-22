@@ -138,7 +138,7 @@ const CSVDashboard = () => {
   useEffect(() => {
     const loadDocIndex = async () => {
       try {
-        const response = await fetch('/docs/documentation/index.json', {
+        const response = await fetch('/Active-Directory-CheatSheet/docs/documentation/index.json', {
           cache: 'no-cache',
           headers: { 'Accept': 'application/json' }
         });
@@ -163,7 +163,7 @@ const CSVDashboard = () => {
           
           if (csvFile) {
             const csvFilename = typeof csvFile === 'string' ? csvFile : csvFile.filename;
-            setCsvUrl(`/docs/documentation/${csvFilename}`);
+            setCsvUrl(`/Active-Directory-CheatSheet/docs/documentation/${csvFilename}`);
           } else {
             console.warn('No CSV file found in index.json');
           }
@@ -389,7 +389,7 @@ const CSVDashboard = () => {
       let files = docIndex;
       if (!files) {
         try {
-          const resp = await fetch('/docs/documentation/index.json', { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
+          const resp = await fetch('/Active-Directory-CheatSheet/docs/documentation/index.json', { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
           const contentType = resp.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) {
             files = [];
@@ -426,7 +426,7 @@ const CSVDashboard = () => {
         return;
       }
 
-      const response = await fetch(`/docs/documentation/${filename}`);
+      const response = await fetch(`/Active-Directory-CheatSheet/docs/documentation/${filename}`);
       if (response.ok) {
         let content = await response.text();
 
