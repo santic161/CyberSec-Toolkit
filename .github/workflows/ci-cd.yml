@@ -1,0 +1,54 @@
+name: CSV Dashboard CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dashboard dependencies
+      run: cd dashboard && npm ci
+    
+    - name: Install sync service dependencies
+      run: cd sync-service && npm ci
+    
+    - name: Run dashboard tests
+      run: cd dashboard && npm test
+    
+    - name: Run sync service tests
+      run: cd sync-service && npm test
+    
+    - name: Build dashboard
+      run: cd dashboard && npm run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build and push Docker images
+      env:
+        DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        echo $DOCKER_PASSWORD | docker login $DOCKER_REGISTRY -u $DOCKER_USERNAME --password-stdin
+        docker build -f Dockerfile.dashboard -t $DOCKER_REGISTRY/csv-dashboard:latest .
+        docker build -f Dockerfile.sync-service -t $DOCKER_REGISTRY/csv-sync-service:latest .
+        docker push $DOCKER_REGISTRY/csv-dashboard:latest
+        docker push $DOCKER_REGISTRY/csv-sync-service:latest

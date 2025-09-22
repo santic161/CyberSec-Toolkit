@@ -32,6 +32,7 @@ function generateDocsIndex() {
 }
 
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? '/Active-Directory-CheatSheet/' : '/',
   plugins: [
     {
       name: 'docs-index-generator',
