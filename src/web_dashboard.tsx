@@ -34,10 +34,10 @@ const CSVDashboard = () => {
   const [lateralWindowContent, setLateralWindowContent] = useState<string>('');
   const [lateralWindowTitle, setLateralWindowTitle] = useState<string>('');
   const [docIndex, setDocIndex] = useState<Array<string | { filename: string; title?: string }> | null>(null);
+  const [csvUrl, setCsvUrl] = useState<string>('');
 
   // Configuration - can be moved to environment variables
   const config = {
-    csvUrl: '/docs/documentation/Tools CMD Database 22a49f86f0b080ffbbb1e5851e1f3f83_all.csv',
     refreshInterval: 300000, // 5 minutes
     maxRetries: 3,
     cacheKey: 'csv_dashboard_data'
@@ -48,6 +48,12 @@ const CSVDashboard = () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Wait for CSV URL to be loaded
+      if (!csvUrl) {
+        setLoading(false);
+        return;
+      }
 
       // Check cache first
       if (useCache) {
@@ -68,7 +74,7 @@ const CSVDashboard = () => {
       }
 
       // Fetch local CSV file
-          const response = await fetch(config.csvUrl, {
+          const response = await fetch(csvUrl, {
         method: 'GET',
             cache: 'no-cache',
             headers: {
@@ -121,16 +127,18 @@ const CSVDashboard = () => {
 
   // Initialize data loading and setup auto-refresh
   useEffect(() => {
-    fetchCSVData();
-    const interval = setInterval(() => fetchCSVData(), config.refreshInterval);
-    return () => clearInterval(interval);
-  }, []);
+    if (csvUrl) {
+      fetchCSVData();
+      const interval = setInterval(() => fetchCSVData(), config.refreshInterval);
+      return () => clearInterval(interval);
+    }
+  }, [csvUrl]);
 
-  // Load dynamic documentation index
+  // Load dynamic documentation index and find CSV
   useEffect(() => {
     const loadDocIndex = async () => {
       try {
-        const response = await fetch('/public/docs/documentation/index.json', {
+        const response = await fetch('/docs/documentation/index.json', {
           cache: 'no-cache',
           headers: { 'Accept': 'application/json' }
         });
@@ -144,7 +152,21 @@ const CSVDashboard = () => {
         }
         const json = await response.json();
         if (Array.isArray(json)) {
-          setDocIndex(json as Array<string | { filename: string; title?: string }>);
+          const docIndexData = json as Array<string | { filename: string; title?: string }>;
+          setDocIndex(docIndexData);
+          
+          // Find CSV file dynamically
+          const csvFile = docIndexData.find(entry => {
+            const filename = typeof entry === 'string' ? entry : entry.filename;
+            return filename && filename.toLowerCase().endsWith('.csv');
+          });
+          
+          if (csvFile) {
+            const csvFilename = typeof csvFile === 'string' ? csvFile : csvFile.filename;
+            setCsvUrl(`/docs/documentation/${csvFilename}`);
+          } else {
+            console.warn('No CSV file found in index.json');
+          }
         } else {
           setDocIndex([]);
         }

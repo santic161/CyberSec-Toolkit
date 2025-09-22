@@ -12,9 +12,13 @@ function generateDocsIndex() {
     }
 
     const files = fs.readdirSync(docsDir)
-      .filter((f) => f.toLowerCase().endsWith('.md'));
+      .filter((f) => f.toLowerCase().endsWith('.md') || f.toLowerCase().endsWith('.csv'));
 
     const index = files.map((filename) => {
+      if (filename.toLowerCase().endsWith('.csv')) {
+        return { filename, title: filename.replace(/\.csv$/i, '') };
+      }
+      
       const base = filename.replace(/\.md$/i, '');
       // Remove trailing space + 32-hex hash if present
       const title = base.replace(/\s[0-9a-fA-F]{32}$/i, '');
