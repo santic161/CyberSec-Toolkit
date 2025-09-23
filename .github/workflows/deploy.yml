@@ -39,10 +39,10 @@ jobs:
       - name: Build application
         run: |
           # Ensure docs directory exists in build output
-          npm run build
-          # mkdir -p dist/docs
+          mkdir -p dist/docs
           # Copy docs to dist
           cp -r docs/* dist/docs/
+          npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
