@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import process from 'node:process';
 import fs from 'fs';
 import path from 'path';
+import {BASE_URL} from "./src/constants"
 
 function generateDocsIndex() {
   try {
@@ -43,7 +44,7 @@ function generateDocsIndex() {
 }
 
 export default defineConfig({
-  base: '/',
+  base: BASE_URL,
   plugins: [
     {
       name: 'docs-index-generator',
