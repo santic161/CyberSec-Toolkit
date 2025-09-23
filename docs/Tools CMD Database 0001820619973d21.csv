@@ -1,8 +1,0 @@
-"Command","Cmd","Page","Tags"
-"Netexec - Password Spraying","netexec smb [IP/DOMAIN] -u [USER_WORDLIST_PATH] -p [PASSWORD]","","Crackmapexec, Netexec, Password Spraying, Brute-Forcing"
-"SMBMap - Enumerate Shares","smbmap -H [IP/DOMAIN] -u [USER] -p [PASSWORD]","","SMB, SMBMap, Authenticated, Enumeration"
-"BloodHound - Make all Digest","bloodhound-ce-python -d [DOMAIN] -u [USER] -p [PASSWORD] -gc [DOMAIN] -c ALL -ns [DCIP]","","BloodHound, Enumeration"
-"Netexec - Enumerate Users via SMB","netexec smb [IP/DOMAIN] -u [USER] -p [PASSWORD] --users | awk '{print $5}'","","Authenticated, Crackmapexec, Netexec, Enumeration, User Enumeration"
-"TEMPLATE TAGS","Enter page to see all Tags","",""
-"Enum4Linux - Authenticated Enumeration","enum4linux -a -u [USER] -p [PASSWORD] [IP/DOMAIN]","","Authenticated, Enum4Linux, Enumeration"
-"Enum4Linux - Unauthenticated Enumeration","Enum4Linux -a [IP/DOMAIN]","","Enum4Linux, Enumeration, Unauthenticated"
