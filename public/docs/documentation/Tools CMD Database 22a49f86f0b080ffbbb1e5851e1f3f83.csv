@@ -1,8 +1,0 @@
-﻿Command,Tags,Cmd,Page
-TEMPLATE TAGS,,Enter page to see all Tags,
-Enum4Linux - Unauthenticated Enumeration,"Enum4Linux, Enumeration, Unauthenticated",Enum4Linux -a [IP/DOMAIN],"Enum4Linux (https://www.notion.so/Enum4Linux-21549f86f0b080f880f4e52d68f8885c?pvs=21) "
-Enum4Linux - Authenticated Enumeration,"Authenticated, Enum4Linux, Enumeration",enum4linux -a -u [USER] -p [PASSWORD] [IP/DOMAIN],"Enum4Linux (https://www.notion.so/Enum4Linux-21549f86f0b080f880f4e52d68f8885c?pvs=21) "
-Netexec - Enumerate Users via SMB,"Authenticated, Crackmapexec, Enumerate Users, Enumeration, Netexec",netexec smb [IP/DOMAIN] -u [USER] -p [PASSWORD] --users | awk '{print $5}',"CrackMapExec | NetExec (https://www.notion.so/CrackMapExec-NetExec-21a49f86f0b080bba75bc113ec40cb69?pvs=21) "
-BloodHound - Make all Digest,"BloodHound, Enumeration",bloodhound-ce-python -d [DOMAIN] -u [USER] -p [PASSWORD] -gc [DOMAIN] -c ALL -ns [DCIP],"BloodHound (https://www.notion.so/BloodHound-21f49f86f0b080e78f29f1ee8cce88af?pvs=21) "
-SMBMap - Enumerate Shares,"Authenticated, Enumeration, SMB, SMBMap",smbmap -H [IP/DOMAIN] -u [USER] -p [PASSWORD],"Smbmap (https://www.notion.so/Smbmap-21a49f86f0b080ef8badc3816c0c4a9d?pvs=21) "
-"Netexec - Password Spraying ","Brute-Forcing, Crackmapexec, Netexec, Password Spraying",netexec smb [IP/DOMAIN] -u [USER_WORDLIST_PATH] -p [PASSWORD],"CrackMapExec | NetExec (https://www.notion.so/CrackMapExec-NetExec-21a49f86f0b080bba75bc113ec40cb69?pvs=21) "

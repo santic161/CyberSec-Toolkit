@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, RefreshCw, Download, Calendar, TrendingUp, BarChart3, Moon, Sun, FileText, X, Shield, ShieldCheck, Wrench, Settings, Database, Network, Lock, Unlock, ChevronLeft, Settings2 } from 'lucide-react';
+import { API_CONFIG, CACHE_CONFIG, INDEX_JSON_PATH, DOCS_PATH, TAG_CATEGORIES } from './constants';
 import Papa from 'papaparse';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Header from './components/Header';
 import VariablesPanel from './components/VariablesPanel';
 
-const CSVDashboard = () => {
+const Dashboard = () => {
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,11 +37,11 @@ const CSVDashboard = () => {
   const [docIndex, setDocIndex] = useState<Array<string | { filename: string; title?: string }> | null>(null);
   const [csvUrl, setCsvUrl] = useState<string>('');
 
-  // Configuration - can be moved to environment variables
+
+  // Configuration from constants
   const config = {
-    refreshInterval: 300000, // 5 minutes
-    maxRetries: 3,
-    cacheKey: 'csv_dashboard_data'
+    ...CACHE_CONFIG,
+    cacheKey: `${CACHE_CONFIG.cacheKeyPrefix}data`
   };
 
   // Fetch CSV data with caching and error handling
@@ -138,10 +139,7 @@ const CSVDashboard = () => {
   useEffect(() => {
     const loadDocIndex = async () => {
       try {
-        const response = await fetch('/Active-Directory-CheatSheet/docs/documentation/index.json', {
-          cache: 'no-cache',
-          headers: { 'Accept': 'application/json' }
-        });
+        const response = await fetch(INDEX_JSON_PATH, API_CONFIG);
         if (!response.ok) return;
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
@@ -163,7 +161,7 @@ const CSVDashboard = () => {
           
           if (csvFile) {
             const csvFilename = typeof csvFile === 'string' ? csvFile : csvFile.filename;
-            setCsvUrl(`/Active-Directory-CheatSheet/docs/documentation/${csvFilename}`);
+            setCsvUrl(`${DOCS_PATH}/${csvFilename}`);
           } else {
             console.warn('No CSV file found in index.json');
           }
@@ -218,9 +216,7 @@ const CSVDashboard = () => {
 
   // Group tags for separate sections (dynamic by intersection)
   const groupedTags = useMemo(() => {
-    const attackTypeList = ['Authenticated', 'Unauthenticated'];
-    const toolsList = ['Enum4Linux', 'Netexec', 'BloodHound', 'SMBMap', 'Crackmapexec'];
-    const generalList = ['Enumeration', 'Brute-Forcing', 'Password Spraying', 'SMB'];
+    const { attackTypes: attackTypeList, tools: toolsList, general: generalList } = TAG_CATEGORIES;
 
     const attackTypes = allTags.filter(t => attackTypeList.includes(t));
     const tools = allTags.filter(t => toolsList.includes(t));
@@ -389,7 +385,7 @@ const CSVDashboard = () => {
       let files = docIndex;
       if (!files) {
         try {
-          const resp = await fetch('/Active-Directory-CheatSheet/docs/documentation/index.json', { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
+          const resp = await fetch(INDEX_JSON_PATH, API_CONFIG);
           const contentType = resp.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) {
             files = [];
@@ -426,7 +422,7 @@ const CSVDashboard = () => {
         return;
       }
 
-      const response = await fetch(`/Active-Directory-CheatSheet/docs/documentation/${filename}`);
+      const response = await fetch(`${DOCS_PATH}/${filename}`, API_CONFIG);
       if (response.ok) {
         let content = await response.text();
 
@@ -1165,4 +1161,4 @@ const CSVDashboard = () => {
   );
 };
 
-export default CSVDashboard;
+export default Dashboard;

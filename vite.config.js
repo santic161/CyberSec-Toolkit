@@ -6,7 +6,7 @@ import path from 'path';
 
 function generateDocsIndex() {
   try {
-    const docsDir = path.resolve(process.cwd(), 'public', 'docs', 'documentation');
+    const docsDir = path.resolve(process.cwd(), 'docs');
     if (!fs.existsSync(docsDir)) {
       return;
     }
@@ -20,8 +20,8 @@ function generateDocsIndex() {
       }
       
       const base = filename.replace(/\.md$/i, '');
-      // Remove trailing space + 32-hex hash if present
-      const title = base.replace(/\s[0-9a-fA-F]{32}$/i, '');
+      // Remove trailing space + hash if present
+      const title = base.replace(/\s[0-9a-fA-F]+$/i, '');
       return { filename, title };
     });
 
@@ -30,20 +30,27 @@ function generateDocsIndex() {
       JSON.stringify(index, null, 2),
       'utf-8'
     );
+
+    // Copy docs to dist
+    const distDocsDir = path.resolve(process.cwd(), 'dist', 'docs');
+    if (!fs.existsSync(distDocsDir)) {
+      fs.mkdirSync(distDocsDir, { recursive: true });
+    }
+    fs.cpSync(path.resolve(process.cwd(), 'docs'), distDocsDir, { recursive: true });
   } catch (e) {
     console.warn('Failed to generate docs index:', e);
   }
 }
 
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/Active-Directory-CheatSheet/' : '/',
+  base: '/',
   plugins: [
     {
       name: 'docs-index-generator',
       apply: 'serve',
       configureServer(server) {
         generateDocsIndex();
-        const docsDir = path.resolve(process.cwd(), 'public', 'docs', 'documentation');
+        const docsDir = path.resolve(process.cwd(), 'docs');
         if (fs.existsSync(docsDir)) {
           const watcher = fs.watch(docsDir, { recursive: false }, () => {
             generateDocsIndex();
@@ -82,6 +89,7 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1000,
+    emptyOutDir: true
   },
   server: {
     port: 3000,
