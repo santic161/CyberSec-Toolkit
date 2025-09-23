@@ -1,5 +1,5 @@
 // Base URL for documentation and API endpoints
-export const BASE_URL = '/Active-Directory-CheatSheet';
+export const BASE_URL = '/Active-Directory-CheatSheet/';
 
 // Documentation paths
 export const DOCS_PATH = `${BASE_URL}docs`;

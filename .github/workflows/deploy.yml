@@ -36,13 +36,26 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build application
+      - name: Prepare docs before build
         run: |
-          # Ensure docs directory exists in build output
-          mkdir -p dist/docs
-          # Copy docs to dist
-          cp -r docs/* dist/docs/
-          npm run build
+          # Create a temporary docs directory in public/src folder if needed
+          # This ensures docs are included in the build process
+          if [ -d "docs" ] && [ -d "public" ]; then
+            cp -r docs public/
+          elif [ -d "docs" ] && [ -d "src" ]; then
+            cp -r docs src/
+          fi
+
+      - name: Build application
+        run: npm run build
+
+      - name: Ensure docs in dist (fallback)
+        run: |
+          # Fallback: copy docs directly to dist if not included in build
+          if [ -d "docs" ] && [ ! -d "dist/docs" ]; then
+            mkdir -p dist/docs
+            cp -r docs/* dist/docs/
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
