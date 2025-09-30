@@ -1,10 +1,10 @@
-# AD Cheatsheet - CSV Dashboard System
+# AD Cheatsheet 
 
-A modern, production-ready CSV visualization dashboard built with React, Vite, and Tailwind CSS. This dashboard provides an intuitive interface for browsing cybersecurity commands, categories, and documentation in Markdown format.
+An Active Directory Dinamic Cheatsheet built with React, Vite, and Tailwind CSS. This page provides an intuitive interface for browsing cybersecurity commands, categories, and documentation in Markdown format.
 
 ## 🚀 Features
 
-- **Interactive CSV Visualization**: Browse and filter cybersecurity commands and tools
+- **Interactive Visualization**: Browse and filter cybersecurity commands and tools
 - **Markdown Documentation**: View detailed documentation with syntax highlighting
 - **Dynamic Content Loading**: Automatically loads CSV and Markdown files from the documentation folder
 - **Responsive Design**: Modern UI built with Tailwind CSS
@@ -16,7 +16,7 @@ A modern, production-ready CSV visualization dashboard built with React, Vite, a
 This dashboard is part of a larger system that includes:
 
 - **Dashboard** (this repository): Frontend React application for data visualization
-- **Sync Service** ([External Repository](https://github.com/your-username/csv-sync-service)): Automated service that exports Notion databases to Markdown and CSV files, then synchronizes them to this repository
+- **Sync Service** ([Active-Directory-Sync-Service](https://github.com/santic161/Active-Directory-Sync-Service)): Automated service that exports Notion databases to Markdown and CSV files, then synchronizes them to this repository
 
 ### Data Flow
 
@@ -38,12 +38,11 @@ dashboard/
 │   │   ├── Header.jsx       # Navigation header
 │   │   └── VariablesPanel.jsx # Data filtering panel
 │   ├── main.jsx             # React application entry point
+|   ├── constants.tx         # Constant variables for easy access
 │   ├── web_dashboard.tsx    # Main dashboard component
 │   └── index.css            # Global styles
 ├── public/
-│   └── docs/
-│       └── documentation/   # CSV and Markdown files (auto-generated)
-├── dist/                    # Production build output
+│   └── docs/                # CSV and Markdown files (auto-generated)
 ├── vite.config.js           # Vite configuration with docs index generation
 ├── tailwind.config.js       # Tailwind CSS configuration
 └── package.json             # Dependencies and scripts
@@ -70,8 +69,8 @@ dashboard/
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/csv-dashboard-system.git
-   cd csv-dashboard-system/dashboard
+   git clone https://github.com/santic161/Active-Directory-CheatSheet.git
+   cd Active-Directory-CheatSheet
    ```
 
 2. **Install dependencies**:
@@ -98,11 +97,10 @@ dashboard/
 
 ## 📊 Data Configuration
 
-The dashboard automatically loads content from the `public/docs/documentation/` directory:
+The dashboard automatically loads content from the `docs/` directory:
 
 - **CSV Files**: Command databases and tool information
 - **Markdown Files**: Detailed documentation and guides
-- **index.json**: Auto-generated index for dynamic content loading
 
 ### Supported File Formats
 
@@ -145,11 +143,10 @@ The production setup includes:
 - Nginx reverse proxy
 - Optimized React build
 - Static file serving
-- Health checks
 
 ## 🔄 Content Synchronization
 
-This dashboard works in conjunction with the [CSV Sync Service](https://github.com/your-username/csv-sync-service) to automatically update content:
+This dashboard works in conjunction with the [Active-Directory-Sync-Service](https://github.com/santic161/Active-Directory-Sync-Service) to automatically update content:
 
 1. **Notion Database**: Contains the source data
 2. **Sync Service**: Exports Notion data to Markdown and CSV files
@@ -160,8 +157,8 @@ This dashboard works in conjunction with the [CSV Sync Service](https://github.c
 
 To manually update content:
 
-1. Place CSV files in `public/docs/documentation/`
-2. Place Markdown files in `public/docs/documentation/`
+1. Place CSV files in `docs/`
+2. Place Markdown files in `docs/`
 3. The dashboard will automatically detect and load new content
 
 ## 🎨 Customization
@@ -182,19 +179,11 @@ To customize the data structure:
 2. Modify the parsing logic in components
 3. Adjust the filtering and search functionality
 
-## 📱 Browser Support
-
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
 ## 🔒 Security Considerations
 
 - All content is served statically
 - No server-side processing of user data
 - Content is validated before rendering
-- HTTPS recommended for production deployment
 
 ## 🚀 Deployment
 
@@ -237,7 +226,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Related Projects
 
-- [CSV Sync Service](https://github.com/santic161/Active-Directory-Sync-Service) - Automated Notion to GitHub synchronization
+- [Active-Directory-Sync-Service](https://github.com/santic161/Active-Directory-Sync-Service) - Automated Notion to GitHub synchronization
 
 
 

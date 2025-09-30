@@ -1,1162 +1,1228 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, RefreshCw, Download, Calendar, TrendingUp, BarChart3, Moon, Sun, FileText, X, Shield, ShieldCheck, Wrench, Settings, Database, Network, Lock, Unlock, ChevronLeft, Settings2 } from 'lucide-react';
-import { API_CONFIG, CACHE_CONFIG, INDEX_JSON_PATH, DOCS_PATH, TAG_CATEGORIES } from './constants';
-import Papa from 'papaparse';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import Header from './components/Header';
-import VariablesPanel from './components/VariablesPanel';
+// ========================================================================================
+// DASHBOARD.TSX - DASHBOARD PRINCIPAL CON SECCIONES DINÁMICAS
+// ========================================================================================
+// Dashboard profesional de ciberseguridad con separación automática por secciones
+// basado en tags, interfaz intuitiva y sistema de variables dinámicas.
 
-const Dashboard = () => {
-  const [data, setData] = useState<any[]>([]);
-  const [filteredData, setFilteredData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [commandVariables, setCommandVariables] = useState<Record<string, string>>({
-    IP: '10.10.10.1',
-    DOMAIN: 'Santic.htb',
-    USER: 'Santino',
-    PASSWORD: 'SuperSecret',
-    USER_WORDLIST_PATH: '/usr/share/wordlists/rockyou.txt',
-    DCIP: '10.10.10.1'
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  Suspense,
+} from "react";
+import Papa from "papaparse";
+import {
+  Search,
+  Filter,
+  Copy,
+  ExternalLink,
+  ChevronRight,
+  Settings,
+  Sun,
+  Moon,
+  Grid,
+  List,
+  TrendingUp,
+  Shield,
+  Activity,
+  Layers,
+  AlertCircle,
+  CheckCircle,
+  RefreshCw,
+  Database,
+  Tag,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Users,
+  Zap,
+  Hash,
+  Globe,
+  Server,
+  BarChart3,
+  Filter as FilterIcon,
+  X,
+  Star,
+  Clock,
+  ArrowRight,
+} from "lucide-react";
+
+// Lazy load components
+const VariablesPanel = React.lazy(() => import("./components/VariablesPanel"));
+const CommandCard = React.lazy(() => import("./components/CommandCard"));
+const SectionCard = React.lazy(() => import("./components/SectionCard"));
+const SmartSearchBar = React.lazy(() => import("./components/SmartSearchBar"));
+
+// Importar toda la configuración centralizada
+import {
+  DASHBOARD_SECTIONS,
+  TAG_CATEGORIES,
+  CATEGORY_DISPLAY_CONFIG,
+  CATEGORY_COLOR_THEMES,
+  API_CONFIG,
+  CACHE_CONFIG,
+  FILE_PATHS,
+  DEFAULT_VARIABLES,
+  VARIABLE_CONFIG,
+  UI_TEXTS,
+  LAYOUT_CONFIG,
+  ANIMATION_CONFIG,
+  DEBUG_CONFIG,
+  getOrderedSections,
+  getTagSection,
+  getSectionColors,
+  type DashboardSection,
+} from "./constants";
+
+// ========================================================================================
+// INTERFACES Y TIPOS
+// ========================================================================================
+interface Tool {
+  Command: string;
+  Cmd: string;
+  Tags: string;
+  Page?: string;
+}
+
+interface SectionData {
+  section: DashboardSection;
+  tools: Tool[];
+  count: number;
+  categories: Record<string, number>;
+}
+
+interface DashboardState {
+  data: Tool[];
+  loading: boolean;
+  error: string | null;
+  selectedSection: string | null;
+  selectedTag: string;
+  globalSearch: string;
+  isDarkMode: boolean;
+  showVariables: boolean;
+  showSections: boolean;
+  commandVariables: Record<string, string>;
+  viewMode: "grid" | "list";
+  sortBy: "name" | "popularity" | "category" | "section";
+  csvUrl: string | null;
+  lastUpdated: Date | null;
+  filters: {
+    sections: string[];
+    categories: string[];
+    tools: string[];
+  };
+}
+
+// ========================================================================================
+// FUNCIONES UTILITARIAS
+// ========================================================================================
+const safeString = (value: any): string => {
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
+
+const safeLocaleCompare = (a: any, b: any): number => {
+  const strA = safeString(a);
+  const strB = safeString(b);
+  return strA.localeCompare(strB);
+};
+
+// Procesar tags dinámicamente
+const extractAllTags = (data: Tool[]): string[] => {
+  const allTags = new Set<string>();
+  data.forEach((item) => {
+    if (item.Tags) {
+      const tags = item.Tags.split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
+      tags.forEach((tag) => allTags.add(tag));
+    }
   });
-  const [editingCommand, setEditingCommand] = useState<string | null>(null);
-  const [globalSearch, setGlobalSearch] = useState('');
-  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const [searchInNavbar, setSearchInNavbar] = useState(false);
-  const [showVariables, setShowVariables] = useState(true);
-  const [lateralWindowOpen, setLateralWindowOpen] = useState(false);
-  const [lateralWindowContent, setLateralWindowContent] = useState<string>('');
-  const [lateralWindowTitle, setLateralWindowTitle] = useState<string>('');
-  const [docIndex, setDocIndex] = useState<Array<string | { filename: string; title?: string }> | null>(null);
-  const [csvUrl, setCsvUrl] = useState<string>('');
+  return Array.from(allTags).sort();
+};
 
+// Categorizar tools por secciones
+const categorizeToolsBySections = (tools: Tool[]): Record<string, Tool[]> => {
+  const sections: Record<string, Tool[]> = {};
 
-  // Configuration from constants
-  const config = {
-    ...CACHE_CONFIG,
-    cacheKey: `${CACHE_CONFIG.cacheKeyPrefix}data`
-  };
+  // Inicializar todas las secciones
+  Object.keys(DASHBOARD_SECTIONS).forEach((sectionKey) => {
+    sections[sectionKey] = [];
+  });
 
-  // Fetch CSV data with caching and error handling
-  const fetchCSVData = async (useCache = true) => {
+  // Agregar herramientas no categorizadas
+  sections["uncategorized"] = [];
+
+  tools.forEach((tool) => {
+    const tags = tool.Tags.split(",").map((tag) => tag.trim());
+    let assigned = false;
+
+    // Verificar cada tag contra las secciones
+    for (const tag of tags) {
+      const sectionKey = getTagSection(tag);
+      if (sectionKey && sections[sectionKey]) {
+        sections[sectionKey].push(tool);
+        assigned = true;
+        break; // Asignar solo a la primera sección que coincida
+      }
+    }
+
+    // Si no se asignó a ninguna sección, agregar a uncategorized
+    if (!assigned) {
+      sections["uncategorized"].push(tool);
+    }
+  });
+
+  return sections;
+};
+
+// Extraer variables de comandos
+const extractVariables = (data: Tool[]): string[] => {
+  const variables = new Set<string>();
+  const pattern = /\[([A-Z_]+)\]/g;
+
+  data.forEach((item) => {
+    if (item.Cmd) {
+      const matches = item.Cmd.match(pattern);
+      if (matches) {
+        matches.forEach((match) => {
+          const variable = match.slice(1, -1);
+          variables.add(variable);
+        });
+      }
+    }
+  });
+
+  return Array.from(variables).sort();
+};
+
+// ========================================================================================
+// CUSTOM HOOKS
+// ========================================================================================
+const useLocalStorage = (key: string, initialValue: any) => {
+  const [storedValue, setStoredValue] = useState(() => {
     try {
-      setLoading(true);
-      setError(null);
-
-      // Wait for CSV URL to be loaded
-      if (!csvUrl) {
-        setLoading(false);
-        return;
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      if (DEBUG_CONFIG.enableLogging) {
+        console.error(`Error loading ${key} from localStorage:`, error);
       }
-
-      // Check cache first
-      if (useCache) {
-        const cached = localStorage.getItem(config.cacheKey);
-        const cacheTimestamp = localStorage.getItem(`${config.cacheKey}_timestamp`);
-        
-        if (cached && cacheTimestamp) {
-          const cacheAge = Date.now() - parseInt(cacheTimestamp);
-          if (cacheAge < config.refreshInterval) {
-            const cachedData = JSON.parse(cached);
-            setData(cachedData);
-            setFilteredData(cachedData);
-            setLastUpdated(new Date(parseInt(cacheTimestamp)));
-            setLoading(false);
-            return;
-          }
-        }
-      }
-
-      // Fetch local CSV file
-          const response = await fetch(csvUrl, {
-        method: 'GET',
-            cache: 'no-cache',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-        }
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const csvText = await response.text();
-          
-      // Parse CSV data
-          Papa.parse(csvText, {
-            header: true,
-            skipEmptyLines: true,
-            transformHeader: (header) => header.trim(),
-            transform: (value) => value.trim(),
-            complete: (results) => {
-              if (results.errors.length > 0) {
-                console.warn('CSV parsing warnings:', results.errors);
-              }
-              
-              const processedData = results.data.filter(row => 
-                Object.values(row).some(value => value && value.toString().trim())
-              );
-              
-              setData(processedData);
-              setFilteredData(processedData);
-              
-              // Cache the data
-              const timestamp = Date.now();
-              localStorage.setItem(config.cacheKey, JSON.stringify(processedData));
-              localStorage.setItem(`${config.cacheKey}_timestamp`, timestamp.toString());
-              setLastUpdated(new Date(timestamp));
-            },
-            error: (error) => {
-              throw new Error(`CSV parsing error: ${error.message}`);
-            }
-          });
-    } catch (err) {
-      console.error('Failed to fetch CSV data:', err);
-      setError(`Failed to load data: ${err.message}`);
-    } finally {
-      setLoading(false);
+      return initialValue;
     }
-  };
+  });
 
-  // Initialize data loading and setup auto-refresh
-  useEffect(() => {
-    if (csvUrl) {
-      fetchCSVData();
-      const interval = setInterval(() => fetchCSVData(), config.refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [csvUrl]);
-
-  // Load dynamic documentation index and find CSV
-  useEffect(() => {
-    const loadDocIndex = async () => {
+  const setValue = useCallback(
+    (value: any) => {
       try {
-        const response = await fetch(INDEX_JSON_PATH, API_CONFIG);
-        if (!response.ok) return;
-        const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          // Probably SPA fallback served index.html
-          console.warn('index.json did not return JSON. Got', contentType);
-          setDocIndex([]);
-          return;
+        setStoredValue(value);
+        window.localStorage.setItem(key, JSON.stringify(value));
+      } catch (error) {
+        if (DEBUG_CONFIG.enableLogging) {
+          console.error(`Error saving ${key} to localStorage:`, error);
         }
-        const json = await response.json();
-        if (Array.isArray(json)) {
-          const docIndexData = json as Array<string | { filename: string; title?: string }>;
-          setDocIndex(docIndexData);
-          
-          // Find CSV file dynamically
-          const csvFile = docIndexData.find(entry => {
-            const filename = typeof entry === 'string' ? entry : entry.filename;
-            return filename && filename.toLowerCase().endsWith('.csv');
-          });
-          
-          if (csvFile) {
-            const csvFilename = typeof csvFile === 'string' ? csvFile : csvFile.filename;
-            setCsvUrl(`${DOCS_PATH}/${csvFilename}`);
-          } else {
-            console.warn('No CSV file found in index.json');
-          }
-        } else {
-          setDocIndex([]);
-        }
-      } catch (e) {
-        setDocIndex([]);
       }
+    },
+    [key]
+  );
+
+  return [storedValue, setValue];
+};
+
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
     };
-    loadDocIndex();
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// ========================================================================================
+// COMPONENTE PRINCIPAL
+// ========================================================================================
+const Dashboard: React.FC = () => {
+  // ========================================================================================
+  // ESTADO DEL DASHBOARD
+  // ========================================================================================
+  const [state, setState] = useState<DashboardState>({
+    data: [],
+    loading: true,
+    error: null,
+    selectedSection: null,
+    selectedTag: "",
+    globalSearch: "",
+    isDarkMode: true,
+    showVariables: false,
+    showSections: true, // Mostrar secciones por defecto
+    commandVariables: DEFAULT_VARIABLES,
+    viewMode: "grid",
+    sortBy: "name",
+    csvUrl: null,
+    lastUpdated: null,
+    filters: {
+      sections: [],
+      categories: [],
+      tools: [],
+    },
+  });
+
+  // Estado persistente
+  const [preferences, setPreferences] = useLocalStorage(
+    "cybersec_preferences",
+    {
+      isDarkMode: true,
+      viewMode: "grid",
+      sortBy: "name",
+      selectedSection: null,
+    }
+  );
+
+  // Búsqueda con debounce
+  const debouncedSearch = useDebounce(state.globalSearch, 300);
+
+  // ========================================================================================
+  // INICIALIZACIÓN
+  // ========================================================================================
+  useEffect(() => {
+    setState((prev) => ({
+      ...prev,
+      isDarkMode: preferences.isDarkMode,
+      viewMode: preferences.viewMode,
+      sortBy: preferences.sortBy,
+      selectedSection: preferences.selectedSection,
+    }));
+  }, [preferences]);
+
+  // ========================================================================================
+  // CARGA DE DATOS
+  // ========================================================================================
+  const loadCSVUrl = useCallback(async () => {
+    try {
+      if (DEBUG_CONFIG.enableLogging) {
+        console.log("Loading CSV URL from:", FILE_PATHS.indexJson);
+      }
+
+      const response = await fetch(FILE_PATHS.indexJson, API_CONFIG);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const indexData = await response.json();
+      if (DEBUG_CONFIG.enableLogging) {
+        console.log("Index data loaded:", indexData);
+      }
+
+      let csvUrl = "";
+
+      if (Array.isArray(indexData)) {
+        const csvEntry = indexData.find((entry: any) => {
+          const filename = typeof entry === "string" ? entry : entry.filename;
+          return filename && filename.toLowerCase().endsWith(".csv");
+        });
+        if (csvEntry) {
+          csvUrl = FILE_PATHS.docsPath + "/" + (csvEntry.filename || csvEntry);
+        }
+      }
+
+      if (csvUrl && !csvUrl.startsWith("http")) {
+        if (csvUrl.startsWith("/")) {
+          csvUrl = window.location.origin + csvUrl;
+        }
+      }
+
+      if (DEBUG_CONFIG.enableLogging) {
+        console.log("CSV URL resolved to:", csvUrl);
+      }
+
+      setState((prev) => ({ ...prev, csvUrl }));
+      return csvUrl;
+    } catch (error) {
+      if (DEBUG_CONFIG.enableLogging) {
+        console.error("Failed to load CSV URL from index:", error);
+      }
+
+      const fallbackUrl = `${FILE_PATHS.docsPath}/${FILE_PATHS.csvFallback}`;
+      if (DEBUG_CONFIG.enableLogging) {
+        console.log("Using fallback CSV URL:", fallbackUrl);
+      }
+
+      setState((prev) => ({ ...prev, csvUrl: fallbackUrl }));
+      return fallbackUrl;
+    }
   }, []);
 
-  // Get column headers
-  const columns = useMemo(() => {
-    if (data.length === 0) return [];
-    return Object.keys(data[0]).filter(key => key.trim());
-  }, [data]);
+  const fetchCSVData = useCallback(
+    async (useCache = false) => {
+      try {
+        setState((prev) => ({ ...prev, loading: true, error: null }));
 
-  // Get category icon
-  const getCategoryIcon = (category: string) => {
-    const iconMap: Record<string, any> = {
-      'Authenticated': ShieldCheck,
-      'Unauthenticated': Shield,
-      'Enum4Linux': Network,
-      'Netexec': Wrench,
-      'BloodHound': Database,
-      'SMBMap': Settings,
-      'Crackmapexec': Wrench,
-      'Enumeration': Search,
-      'Brute-Forcing': Lock,
-      'Password Spraying': Unlock,
-      'SMB': Network,
-      'Tools': Wrench,
-      'General': Settings
-    };
-    return iconMap[category] || BarChart3;
-  };
-
-  // Extract unique tags dynamically
-  const allTags = useMemo(() => {
-    if (data.length === 0) return [] as string[];
-    const tagSet = new Set<string>();
-    data.forEach(row => {
-      if (row.Tags) {
-        const tags = row.Tags.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag);
-        tags.forEach(tag => tagSet.add(tag));
-      }
-    });
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
-  }, [data]);
-
-  // Group tags for separate sections (dynamic by intersection)
-  const groupedTags = useMemo(() => {
-    const { attackTypes: attackTypeList, tools: toolsList, general: generalList } = TAG_CATEGORIES;
-
-    const attackTypes = allTags.filter(t => attackTypeList.includes(t));
-    const tools = allTags.filter(t => toolsList.includes(t));
-    const general = allTags.filter(t => generalList.includes(t));
-    const known = new Set([...attackTypes, ...tools, ...general]);
-    const others = allTags.filter(t => !known.has(t));
-
-    return { attackTypes, tools, general, others };
-  }, [allTags]);
-
-  // Get data filtered by selected tag and search
-  const tagFilteredData = useMemo(() => {
-    if (!selectedTag) return [];
-    
-    let filtered = data.filter(row => 
-      row.Tags && row.Tags.split(',').map((tag: string) => tag.trim()).includes(selectedTag)
-    );
-    
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(row =>
-        Object.values(row).some(value =>
-          value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
-    
-    return filtered;
-  }, [data, selectedTag, searchTerm]);
-
-  // Extract variables from command string (including combined variables like [IP/DOMAIN])
-  const extractVariables = (command: string): string[] => {
-    const matches = command.match(/\[([^\]]+)\]/g);
-    if (!matches) return [];
-    
-    const variables: string[] = [];
-    matches.forEach(match => {
-      const content = match.slice(1, -1); // Remove brackets
-      if (content.includes('/')) {
-        // Handle combined variables like [IP/DOMAIN]
-        const options = content.split('/');
-        variables.push(...options);
-      } else {
-        variables.push(content);
-      }
-    });
-    
-    return [...new Set(variables)]; // Remove duplicates
-  };
-
-  // Replace variables in command with user input values
-  const processCommand = (command: string): string => {
-    let processedCommand = command;
-    
-    // Handle combined variables first (like [IP/DOMAIN])
-    const combinedMatches = command.match(/\[([^/\]]+\/[^\]]+)\]/g);
-    if (combinedMatches) {
-      combinedMatches.forEach(match => {
-        const content = match.slice(1, -1);
-        const [firstOption, secondOption] = content.split('/');
-        
-        // Use first option if available, otherwise second option
-        const value = commandVariables[firstOption] || commandVariables[secondOption] || match;
-        processedCommand = processedCommand.replace(match, value);
-      });
-    }
-    
-    // Handle regular variables
-    Object.entries(commandVariables).forEach(([variable, value]) => {
-      const regex = new RegExp(`\\[${variable}\\]`, 'g');
-      processedCommand = processedCommand.replace(regex, value);
-    });
-    
-    return processedCommand;
-  };
-
-  // Handle search and filtering
-  useEffect(() => {
-    let filtered = [...data];
-
-    // Apply text search
-    if (searchTerm) {
-      filtered = filtered.filter(row =>
-        Object.values(row).some(value =>
-          value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
-
-    // Apply column filters
-    if (selectedColumns.length > 0) {
-      // This is a basic implementation - can be extended for complex filtering
-      filtered = filtered.filter(row =>
-        selectedColumns.every(col => row[col] && row[col].toString().trim())
-      );
-    }
-
-    // Apply sorting
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        const aVal = a[sortConfig.key!] || '';
-        const bVal = b[sortConfig.key!] || '';
-        
-        // Try numeric comparison first
-        const aNum = parseFloat(aVal);
-        const bNum = parseFloat(bVal);
-        
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+        let csvUrl = state.csvUrl;
+        if (!csvUrl) {
+          csvUrl = await loadCSVUrl();
         }
-        
-        // Fall back to string comparison
-        const comparison = aVal.toString().localeCompare(bVal.toString());
-        return sortConfig.direction === 'asc' ? comparison : -comparison;
-      });
-    }
 
-    setFilteredData(filtered);
-  }, [data, searchTerm, selectedColumns, sortConfig]);
-
-  // Handle column sort
-  const handleSort = (column) => {
-    setSortConfig(prev => ({
-      key: column,
-      direction: prev.key === column && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
-  };
-
-  // Export filtered data
-  const exportData = () => {
-    const csv = Papa.unparse(filteredData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `exported_data_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Copy command to clipboard
-  const copyCommand = async (command: string) => {
-    try {
-      const processedCmd = processCommand(command);
-      await navigator.clipboard.writeText(processedCmd);
-      console.log('Command copied to clipboard:', processedCmd);
-    } catch (err) {
-      console.error('Failed to copy command:', err);
-    }
-  };
-
-  // Update variable value
-  const updateVariable = (variable: string, value: string) => {
-    setCommandVariables(prev => ({
-      ...prev,
-      [variable]: value
-    }));
-  };
-
-
-  // Open lateral window with markdown content (dynamic resolution)
-  const openLateralWindow = async (command: string) => {
-    try {
-      // Ensure doc index is loaded
-      let files = docIndex;
-      if (!files) {
-        try {
-          const resp = await fetch(INDEX_JSON_PATH, API_CONFIG);
-          const contentType = resp.headers.get('content-type') || '';
-          if (!contentType.includes('application/json')) {
-            files = [];
-          } else {
-            const json = await resp.json();
-            files = Array.isArray(json) ? (json as Array<string | { filename: string; title?: string }>) : [];
-          }
-          setDocIndex(files);
-        } catch {
-          files = [];
+        if (!csvUrl) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: "No se encontró la URL del CSV",
+          }));
+          return;
         }
-      }
 
-      // Resolve by title or filename starting with command
-      let filename: string | undefined;
-      for (const entry of files || []) {
-        if (typeof entry === 'string') {
-          const f = entry;
-          if (f.toLowerCase().startsWith(command.toLowerCase()) && f.toLowerCase().endsWith('.md')) {
-            filename = f;
-            break;
-          }
-        } else if (entry && typeof entry === 'object') {
-          const t = (entry.title || '').toLowerCase();
-          const f = (entry.filename || '').toLowerCase();
-          if ((t && t === command.toLowerCase()) || (f && f.startsWith(command.toLowerCase()))) {
-            filename = entry.filename;
-            break;
+        // Verificar caché solo si se solicita y el caché está habilitado
+        if (useCache && CACHE_CONFIG.refreshInterval > 0) {
+          const cached = localStorage.getItem(
+            CACHE_CONFIG.cacheKeyPrefix + "data"
+          );
+          const cacheTimestamp = localStorage.getItem(
+            `${CACHE_CONFIG.cacheKeyPrefix}data_timestamp`
+          );
+
+          if (cached && cacheTimestamp) {
+            const cacheAge = Date.now() - parseInt(cacheTimestamp);
+            if (cacheAge < CACHE_CONFIG.refreshInterval) {
+              const cachedData = JSON.parse(cached);
+              if (DEBUG_CONFIG.enableLogging) {
+                console.log("Using cached data:", cachedData.length, "records");
+              }
+              setState((prev) => ({
+                ...prev,
+                data: cachedData,
+                loading: false,
+                lastUpdated: new Date(parseInt(cacheTimestamp)),
+              }));
+              return;
+            }
           }
         }
-      }
-      if (!filename) {
-        console.error('No documentation file found for command:', command);
-        return;
-      }
 
-      const response = await fetch(`${DOCS_PATH}/${filename}`, API_CONFIG);
-      if (response.ok) {
-        let content = await response.text();
+        if (DEBUG_CONFIG.enableLogging) {
+          console.log("Fetching fresh CSV from:", csvUrl);
+        }
 
-        // Remove Cmd line completely
-        content = content.replace(/^Cmd: .+$/gm, '');
-
-        // Add tags styling - fix the regex to handle the actual format
-        content = content.replace(/^Tags: (.+)$/gm, (match, tags) => {
-          const cleanTags = tags.replace(/,,+/g, ',').replace(/^,|,$/g, '');
-          const tagList = cleanTags.split(',').map((tag: string) => tag.trim()).filter(tag => tag && tag !== '');
-          if (tagList.length === 0) return '';
-          const tagListMarkdown = tagList.map(tag => `- ${tag}`).join('\n');
-          return `**Tags:**\n${tagListMarkdown}`;
+        const response = await fetch(csvUrl, {
+          method: "GET",
+          cache: "no-cache",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+          },
         });
-        // Remove Page line completely
-        content = content.replace(/^Page: .+$/gm, '');
-        const title = command;
-        setLateralWindowContent(content);
-        setLateralWindowTitle(title);
-        setLateralWindowOpen(true);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const csvText = await response.text();
+        if (DEBUG_CONFIG.enableLogging) {
+          console.log("CSV text loaded, length:", csvText.length);
+        }
+
+        Papa.parse<Tool>(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (header) => header.trim(),
+          transform: (value) => value.trim(),
+          complete: (results) => {
+            if (DEBUG_CONFIG.enableLogging) {
+              console.log("Papa Parse results:", results);
+            }
+
+            if (results.errors.length > 0) {
+              console.warn("CSV parsing warnings:", results.errors);
+            }
+
+            const processedData = results.data
+              .filter((row) => {
+                return Object.values(row).some(
+                  (value) => value && value.toString().trim()
+                );
+              })
+              .map((row) => ({
+                Command: safeString(row.Command || "").trim(),
+                Cmd: safeString(row.Cmd || "").trim(),
+                Tags: safeString(row.Tags || "").trim(),
+                Page: safeString(row.Page || "").trim(),
+              }))
+              .filter((item) => item.Command && item.Cmd);
+
+            if (DEBUG_CONFIG.enableLogging) {
+              console.log(
+                "Processed data:",
+                processedData.length,
+                "valid records"
+              );
+            }
+
+            setState((prev) => ({
+              ...prev,
+              data: processedData,
+              loading: false,
+              error: null,
+            }));
+
+            // Guardar en caché si está habilitado
+            if (CACHE_CONFIG.refreshInterval > 0) {
+              const timestamp = Date.now();
+              localStorage.setItem(
+                CACHE_CONFIG.cacheKeyPrefix + "data",
+                JSON.stringify(processedData)
+              );
+              localStorage.setItem(
+                `${CACHE_CONFIG.cacheKeyPrefix}data_timestamp`,
+                timestamp.toString()
+              );
+            }
+
+            setState((prev) => ({
+              ...prev,
+              lastUpdated: new Date(),
+            }));
+          },
+          error: (error) => {
+            throw new Error(`Error al procesar CSV: ${error.message}`);
+          },
+        });
+      } catch (err) {
+        console.error("Failed to fetch CSV data:", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Error desconocido";
+        setState((prev) => ({
+          ...prev,
+          error: `Error al cargar datos: ${errorMessage}`,
+          loading: false,
+        }));
       }
-    } catch (error) {
-      console.error('Failed to load markdown file:', error);
+    },
+    [state.csvUrl, loadCSVUrl]
+  );
+
+  // Inicializar carga de datos
+  useEffect(() => {
+    loadCSVUrl().then(() => {
+      fetchCSVData(!CACHE_CONFIG.forceRefreshOnLoad);
+    });
+  }, [loadCSVUrl, fetchCSVData]);
+
+  // ========================================================================================
+  // PROCESAMIENTO DE DATOS
+  // ========================================================================================
+  const { sectionData, allTags, availableVariables, totalStats } =
+    useMemo(() => {
+      if (!state.data.length) {
+        return {
+          sectionData: [],
+          allTags: [],
+          availableVariables: [],
+          totalStats: { tools: 0, categories: 0, variables: 0 },
+        };
+      }
+
+      // Extraer datos básicos
+      const tags = extractAllTags(state.data);
+      const variables = extractVariables(state.data);
+      const sectionsByTools = categorizeToolsBySections(state.data);
+
+      // Crear datos de secciones
+      const sections: SectionData[] = getOrderedSections()
+        .map((section) => {
+          const tools = sectionsByTools[section.key] || [];
+          const categories: Record<string, number> = {};
+
+          // Contar categorías dentro de cada sección
+          tools.forEach((tool) => {
+            const toolTags = tool.Tags.split(",").map((t) => t.trim());
+            toolTags.forEach((tag) => {
+              categories[tag] = (categories[tag] || 0) + 1;
+            });
+          });
+
+          return {
+            section,
+            tools,
+            count: tools.length,
+            categories,
+          };
+        })
+        .filter((sectionData) => sectionData.count > 0); // Solo mostrar secciones con contenido
+
+      if (DEBUG_CONFIG.enableLogging) {
+        console.log("Section analysis:", {
+          totalSections: sections.length,
+          totalTags: tags.length,
+          totalVariables: variables.length,
+          sectionBreakdown: sections.map((s) => ({
+            name: s.section.displayName,
+            count: s.count,
+          })),
+        });
+      }
+
+      const stats = {
+        tools: state.data.length,
+        categories: tags.length,
+        variables: variables.length,
+      };
+
+      return {
+        sectionData: sections,
+        allTags: tags,
+        availableVariables: variables,
+        totalStats: stats,
+      };
+    }, [state.data]);
+
+  // Filtrar datos basado en búsqueda y selecciones
+  const filteredData = useMemo(() => {
+    let filtered = state.data;
+
+    // Filtro por sección seleccionada
+    if (state.selectedSection) {
+      const sectionTools =
+        sectionData.find((s) => s.section.key === state.selectedSection)
+          ?.tools || [];
+      filtered = sectionTools;
     }
+
+    // Filtro por búsqueda global
+    if (debouncedSearch) {
+      const searchTerm = debouncedSearch.toLowerCase();
+      filtered = filtered.filter((item) => {
+        const command = safeString(item.Command).toLowerCase();
+        const cmd = safeString(item.Cmd).toLowerCase();
+        const tags = safeString(item.Tags).toLowerCase();
+
+        return (
+          command.includes(searchTerm) ||
+          cmd.includes(searchTerm) ||
+          tags.includes(searchTerm)
+        );
+      });
+    }
+
+    // Filtro por tag específico
+    if (state.selectedTag) {
+      filtered = filtered.filter((item) => {
+        const tags = item.Tags.split(",").map((tag) =>
+          tag.trim().toLowerCase()
+        );
+        return tags.includes(state.selectedTag.toLowerCase());
+      });
+    }
+
+    // Aplicar ordenamiento
+    switch (state.sortBy) {
+      case "name":
+        filtered.sort((a, b) => safeLocaleCompare(a.Command, b.Command));
+        break;
+      case "category":
+        filtered.sort((a, b) => {
+          const aFirstTag = safeString(a.Tags).split(",")[0]?.trim() || "";
+          const bFirstTag = safeString(b.Tags).split(",")[0]?.trim() || "";
+          return safeLocaleCompare(aFirstTag, bFirstTag);
+        });
+        break;
+      case "popularity":
+        filtered.sort((a, b) => {
+          const aTagCount = safeString(a.Tags)
+            .split(",")
+            .filter((t) => t.trim()).length;
+          const bTagCount = safeString(b.Tags)
+            .split(",")
+            .filter((t) => t.trim()).length;
+          return bTagCount - aTagCount;
+        });
+        break;
+      case "section":
+        filtered.sort((a, b) => {
+          const aSection =
+            getTagSection(a.Tags.split(",")[0]?.trim() || "") || "z";
+          const bSection =
+            getTagSection(b.Tags.split(",")[0]?.trim() || "") || "z";
+          return aSection.localeCompare(bSection);
+        });
+        break;
+    }
+
+    return filtered;
+  }, [
+    state.data,
+    sectionData,
+    state.selectedSection,
+    debouncedSearch,
+    state.selectedTag,
+    state.sortBy,
+  ]);
+
+  // ========================================================================================
+  // MANEJADORES DE EVENTOS
+  // ========================================================================================
+  const handleThemeToggle = useCallback(() => {
+    const newTheme = !state.isDarkMode;
+    setState((prev) => ({ ...prev, isDarkMode: newTheme }));
+    setPreferences((prev) => ({ ...prev, isDarkMode: newTheme }));
+  }, [state.isDarkMode, setPreferences]);
+
+  const handleSectionSelect = useCallback(
+    (sectionKey: string | null) => {
+      setState((prev) => ({
+        ...prev,
+        selectedSection:
+          prev.selectedSection === sectionKey ? null : sectionKey,
+        selectedTag: "", // Limpiar tag al cambiar sección
+        showSections: sectionKey === null, // Mostrar secciones si no hay selección
+      }));
+      setPreferences((prev) => ({ ...prev, selectedSection: sectionKey }));
+    },
+    [setPreferences]
+  );
+
+  const handleTagSelect = useCallback((tag: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedTag: prev.selectedTag === tag ? "" : tag,
+    }));
+  }, []);
+
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setState((prev) => ({ ...prev, globalSearch: e.target.value }));
+    },
+    []
+  );
+
+  const updateVariable = useCallback((key: string, value: string) => {
+    setState((prev) => ({
+      ...prev,
+      commandVariables: { ...prev.commandVariables, [key]: value },
+    }));
+  }, []);
+
+  const replaceVariables = useCallback(
+    (command: string) => {
+      if (!command || typeof command !== "string") return "";
+
+      return Object.entries(state.commandVariables).reduce(
+        (cmd, [key, value]) => {
+          const safeValue = safeString(value);
+          return cmd.replace(new RegExp(`\\[${key}\\]`, "g"), safeValue);
+        },
+        command
+      );
+    },
+    [state.commandVariables]
+  );
+
+  const copyToClipboard = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Aquí podrías agregar una notificación de éxito
+    } catch (error) {
+      if (DEBUG_CONFIG.enableLogging) {
+        console.error("Failed to copy to clipboard:", error);
+      }
+    }
+  }, []);
+
+  const forceRefresh = useCallback(() => {
+    // Limpiar caché
+    localStorage.removeItem(CACHE_CONFIG.cacheKeyPrefix + "data");
+    localStorage.removeItem(`${CACHE_CONFIG.cacheKeyPrefix}data_timestamp`);
+    fetchCSVData(false);
+  }, [fetchCSVData]);
+
+  const getCategoryColors = useCallback(
+    (categoryKey: string, isDark: boolean = false) => {
+      const theme =
+        CATEGORY_COLOR_THEMES[categoryKey.toLowerCase()] ||
+        CATEGORY_COLOR_THEMES.uncategorized;
+
+      return {
+        bg: isDark ? theme.darkBg : theme.lightBg,
+        text: isDark ? theme.darkText : theme.lightText,
+      };
+    },
+    []
+  );
+
+  // ========================================================================================
+  // COMPONENTES DE UI
+  // ========================================================================================
+  const LoadingSpinner = () => (
+    <div className="flex flex-col justify-center items-center min-h-64">
+      <div className="relative mb-4">
+        <div
+          className={`w-16 h-16 border-4 border-blue-200 rounded-full ${ANIMATION_CONFIG.loading.spin}`}
+        ></div>
+        <div
+          className={`w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full ${ANIMATION_CONFIG.loading.spin} absolute top-0 left-0`}
+        ></div>
+      </div>
+      <span className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+        {UI_TEXTS.loading}
+      </span>
+      {state.csvUrl && (
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          Fuente: {state.csvUrl.split("/").pop()}
+        </span>
+      )}
+    </div>
+  );
+
+  const ErrorMessage = ({ message }: { message: string }) => (
+    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
+      <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+      <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+        {UI_TEXTS.error}
+      </h3>
+      <p className="text-red-600 dark:text-red-300 mb-4">{message}</p>
+      <div className="flex justify-center space-x-2">
+        <button
+          onClick={() => fetchCSVData(false)}
+          className={`inline-flex items-center space-x-2 px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-800 dark:text-red-200 rounded-lg ${ANIMATION_CONFIG.transition}`}
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Reintentar</span>
+        </button>
+        <button
+          onClick={forceRefresh}
+          className={`inline-flex items-center space-x-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-800 dark:hover:bg-blue-700 text-blue-800 dark:text-blue-200 rounded-lg ${ANIMATION_CONFIG.transition}`}
+        >
+          <Database className="h-4 w-4" />
+          <span>Refrescar</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  // Panel de secciones principales
+  const SectionsOverview = () => {
+    if (!state.showSections || state.selectedSection) return null;
+
+    return (
+      <div className="mb-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold mb-4">{UI_TEXTS.appTitle}</h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            {UI_TEXTS.appSubtitle}
+          </p>
+        </div>
+
+        <div
+          className={`grid gap-6 ${LAYOUT_CONFIG.gridCols.mobile} ${LAYOUT_CONFIG.gridCols.tablet} ${LAYOUT_CONFIG.gridCols.desktop}`}
+        >
+          {sectionData.map((section) => (
+            <Suspense
+              key={section.section.key}
+              fallback={
+                <div
+                  className={`p-6 ${ANIMATION_CONFIG.loading.pulse} bg-gray-200 dark:bg-gray-700 rounded-lg`}
+                >
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+                </div>
+              }
+            >
+              <SectionCard
+                sectionData={section}
+                isDarkMode={state.isDarkMode}
+                onSelect={() => handleSectionSelect(section.section.key)}
+                getSectionColors={getSectionColors}
+              />
+            </Suspense>
+          ))}
+        </div>
+      </div>
+    );
   };
 
-  // Get basic statistics
-  const stats = useMemo(() => {
-    if (filteredData.length === 0) return null;
-    
-    return {
-      totalRows: filteredData.length,
-      totalColumns: columns.length,
-      lastModified: lastUpdated,
-      numericColumns: columns.filter(col => 
-        filteredData.some(row => !isNaN(parseFloat(row[col])))
-      ).length
-    };
-  }, [filteredData, columns, lastUpdated]);
-
-  if (loading && data.length === 0) {
-    return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className={`${isDarkMode ? 'bg-red-900 border-red-700' : 'bg-red-50 border-red-200'} border rounded-lg p-4`}>
-            <h2 className={`${isDarkMode ? 'text-red-200' : 'text-red-800'} font-semibold mb-2`}>Error Loading Data</h2>
-            <p className={`${isDarkMode ? 'text-red-300' : 'text-red-600'} text-sm mb-4`}>{error}</p>
-            <button
-              onClick={() => fetchCSVData(false)}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // ========================================================================================
+  // RENDER PRINCIPAL
+  // ========================================================================================
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <Header
-        isDarkMode={isDarkMode}
-        setIsDarkMode={setIsDarkMode}
-        selectedTag={selectedTag}
-        searchInNavbar={searchInNavbar}
-        setSearchInNavbar={setSearchInNavbar}
-        globalSearch={globalSearch}
-        setGlobalSearch={setGlobalSearch}
-        showVariables={showVariables}
-        setShowVariables={setShowVariables}
-        title="AD Cheatsheet"
-      />
-
-      <VariablesPanel
-        isDarkMode={isDarkMode}
-        showVariables={showVariables}
-        commandVariables={commandVariables}
-        setCommandVariables={setCommandVariables}
-        updateVariable={updateVariable}
-      />
-
-
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {globalSearch ? (
-          /* Global Search Results */
-          <div>
-            <div className="mb-6">
-              <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-                Search Results for "{globalSearch}"
-              </h2>
-              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Found {data.filter(row => 
-                  Object.values(row).some(value =>
-                    value && value.toString().toLowerCase().includes(globalSearch.toLowerCase())
-                  )
-                ).length} results across all categories
-              </p>
-            </div>
-
-            {/* Global Search Results */}
-            <div className="space-y-4">
-              {data.filter(row => 
-                Object.values(row).some(value =>
-                  value && value.toString().toLowerCase().includes(globalSearch.toLowerCase())
-                )
-              ).map((row, index) => {
-                const variables = extractVariables(row.Cmd || '');
-                const processedCommand = processCommand(row.Cmd || '');
-                
-                return (
-                  <div
-                    key={index}
-                    className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border p-6`}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {row.Command}
-                        </h3>
-                        {row.Tags && (
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {row.Tags.split(',').map((tag: string, tagIndex: number) => (
-                              <span
-                                key={tagIndex}
-                                className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer ${
-                                  isDarkMode 
-                                    ? 'bg-gray-700 text-gray-300 hover:bg-blue-700' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-blue-100'
-                                }`}
-                                onClick={() => {
-                                  setSelectedTag(tag.trim());
-                                  setShowGlobalSearch(false);
-                                  setGlobalSearch('');
-                                }}
-                              >
-                                {tag.trim()}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-            <button
-                        onClick={() => copyCommand(row.Cmd)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          isDarkMode 
-                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        Copy Command
-            </button>
-          </div>
-
-                    {/* Command Display */}
-                    <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} rounded-lg p-4 mb-4`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                          Command:
-                        </span>
-                        <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {variables.length > 0 ? `${variables.length} variable${variables.length !== 1 ? 's' : ''}` : 'No variables'}
-                        </span>
-                      </div>
-                      <code className={`block text-sm font-mono break-all ${
-                        isDarkMode ? 'text-green-400' : 'text-green-600'
-                      }`}>
-                        {processedCommand}
-                      </code>
-                    </div>
-                    
-                    {/* Variables in this command */}
-                    {variables.length > 0 && (
-                      <div className="mb-4">
-                        <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                          Variables used in this command:
-                        </h4>
-              <div className="flex flex-wrap gap-2">
-                          {variables.map((variable, varIndex) => (
-                            <span
-                              key={varIndex}
-                              className={`px-2 py-1 rounded text-xs font-medium ${
-                                commandVariables[variable] 
-                                  ? (isDarkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800')
-                                  : (isDarkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800')
-                              }`}
-                            >
-                              {variable}: {commandVariables[variable] || 'Not set'}
-                            </span>
-                ))}
-              </div>
-            </div>
-          )}
-                    
-                    {/* Page Link */}
-                    {row.Page && (
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <a
-                          href={row.Page}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`text-sm ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} underline`}
-                        >
-                          View Documentation →
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              
-              {data.filter(row => 
-                Object.values(row).some(value =>
-                  value && value.toString().toLowerCase().includes(globalSearch.toLowerCase())
-                )
-              ).length === 0 && (
-                <div className={`text-center py-12 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg border border-gray-200 dark:border-gray-700`}>
-                  <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                    No results found for "{globalSearch}".
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : !selectedTag ? (
-          /* Categories View */
-          <div>
-            <div className="mb-6">
-              <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-                Attack Categories
-              </h2>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Choose a category to explore tools and commands
-              </p>
-        </div>
-
-            {/* Attack Types */}
-            {groupedTags.attackTypes.length > 0 && (
-              <div className="mb-6">
-                <h3 className={`text-lg font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Attack Types
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {groupedTags.attackTypes.map(tag => {
-                    const tagCount = data.filter(row => 
-                      row.Tags && row.Tags.split(',').map((t: string) => t.trim()).includes(tag)
-                    ).length;
-                    if (tagCount === 0) return null;
-                    const IconComponent = getCategoryIcon(tag);
-                    return (
-                      <div
-                        key={tag}
-                        onClick={() => setSelectedTag(tag)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all duration-150 hover:shadow-md ${
-                          isDarkMode 
-                            ? 'bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750' 
-                            : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${
-                            tag === 'Authenticated' 
-                              ? (isDarkMode ? 'bg-green-900 text-green-400' : 'bg-green-100 text-green-600')
-                              : (isDarkMode ? 'bg-orange-900 text-orange-400' : 'bg-orange-100 text-orange-600')
-                          }`}>
-                            <IconComponent className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {tag}
-                            </h4>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {tagCount} tools
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Tools */}
-            {groupedTags.tools.length > 0 && (
-              <div className="mb-6">
-                <h3 className={`text-lg font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Tools
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedTags.tools.map(tag => {
-                    const tagCount = data.filter(row => 
-                      row.Tags && row.Tags.split(',').map((t: string) => t.trim()).includes(tag)
-                    ).length;
-                    if (tagCount === 0) return null;
-                    const IconComponent = getCategoryIcon(tag);
-                    return (
-                      <div
-                        key={tag}
-                        onClick={() => setSelectedTag(tag)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all duration-150 hover:shadow-md ${
-                          isDarkMode 
-                            ? 'bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750' 
-                            : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-900 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
-                            <IconComponent className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {tag}
-                            </h4>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {tagCount} tools
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* General */}
-            {groupedTags.general.length > 0 && (
-              <div className="mb-6">
-                <h3 className={`text-lg font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  General
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedTags.general.map(tag => {
-                    const tagCount = data.filter(row => 
-                      row.Tags && row.Tags.split(',').map((t: string) => t.trim()).includes(tag)
-                    ).length;
-                    if (tagCount === 0) return null;
-                    const IconComponent = getCategoryIcon(tag);
-                    return (
-                      <div
-                        key={tag}
-                        onClick={() => setSelectedTag(tag)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all duration-150 hover:shadow-md ${
-                          isDarkMode 
-                            ? 'bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750' 
-                            : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-purple-900 text-purple-400' : 'bg-purple-100 text-purple-600'}`}>
-                            <IconComponent className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {tag}
-                            </h4>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {tagCount} tools
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Other categories present in CSV */}
-            {groupedTags.others.length > 0 && (
-              <div>
-                <h3 className={`text-lg font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Other
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedTags.others.map(tag => {
-                    const tagCount = data.filter(row => 
-                      row.Tags && row.Tags.split(',').map((t: string) => t.trim()).includes(tag)
-                    ).length;
-                    if (tagCount === 0) return null;
-                    const IconComponent = getCategoryIcon(tag);
-                    return (
-                      <div
-                        key={tag}
-                        onClick={() => setSelectedTag(tag)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all duration-150 hover:shadow-md ${
-                          isDarkMode 
-                            ? 'bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750' 
-                            : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
-                            <IconComponent className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {tag}
-                            </h4>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {tagCount} tools
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* Command View - Show tools for selected tag */
-          <div>
-            <div className="flex items-center justify-between mb-4">
+    <div
+      className={`min-h-screen ${ANIMATION_CONFIG.transition} ${
+        state.isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
+      }`}
+    >
+      {/* Header */}
+      <header
+        className={`sticky top-0 z-50 border-b ${ANIMATION_CONFIG.transition} ${
+          state.isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
+        } backdrop-blur-sm bg-opacity-90`}
+      >
+        <div
+          className={`${LAYOUT_CONFIG.maxWidth} mx-auto ${LAYOUT_CONFIG.padding.mobile} ${LAYOUT_CONFIG.padding.tablet} ${LAYOUT_CONFIG.padding.desktop}`}
+        >
+          <div className="flex items-center justify-between h-16">
+            {/* Logo y título */}
+            <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setSelectedTag(null)}
-                  className={`flex items-center space-x-1 px-3 py-1.5 rounded text-sm transition-colors ${
-                    isDarkMode 
-                      ? 'text-gray-400 hover:text-white hover:bg-gray-800' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <span>←</span>
-                  <span>Back</span>
-                </button>
-                <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {selectedTag}
-                </h2>
+                <Shield className="h-8 w-8 text-blue-500" />
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {state.selectedSection
+                      ? DASHBOARD_SECTIONS[state.selectedSection]
+                          ?.displayName || UI_TEXTS.appTitle
+                      : UI_TEXTS.appTitle}
+                  </h1>
+                  {state.selectedSection && (
+                    <button
+                      onClick={() => handleSectionSelect(null)}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
+                    >
+                      <ArrowRight className="h-3 w-3 rotate-180" />
+                      <span>Volver a secciones</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-500">
+                <Database className="h-4 w-4" />
+                <span>
+                  {totalStats.tools} {UI_TEXTS.stats.tools}
+                </span>
+                <span>•</span>
+                <span>
+                  {totalStats.categories} {UI_TEXTS.stats.categories}
+                </span>
+                <span>•</span>
+                <span>
+                  {totalStats.variables} {UI_TEXTS.stats.variables}
+                </span>
+                {state.selectedSection && (
+                  <>
+                    <span>•</span>
+                    <span>{filteredData.length} filtradas</span>
+                  </>
+                )}
               </div>
             </div>
 
-
-            {/* Command Cards */}
-            <div className="space-y-3">
-              {tagFilteredData.map((row, index) => {
-                const variables = extractVariables(row.Cmd || '');
-                const processedCommand = processCommand(row.Cmd || '');
-                
-                return (
-                  <div
-                    key={index}
-                    className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded border p-4`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className={`text-lg font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {row.Command}
-                        </h3>
-                        {row.Tags && (
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {row.Tags.split(',').map((tag: string, tagIndex: number) => (
-                              <span
-                                key={tagIndex}
-                                className={`px-2 py-0.5 rounded text-xs ${
-                                  isDarkMode 
-                                    ? 'bg-gray-700 text-gray-300' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                {tag.trim()}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => copyCommand(row.Cmd)}
-                        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                          isDarkMode 
-                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        Copy
-                      </button>
-          </div>
-          
-                    {/* Command Display */}
-                    <div className={`${isDarkMode ? 'bg-black border-gray-700' : 'bg-gray-900 border-gray-600'} border rounded p-3 mb-3`}>
-                      <code className={`block text-sm font-mono break-all ${
-                        isDarkMode ? 'text-green-400' : 'text-green-300'
-                      }`}>
-                        ~$ {processedCommand}
-                      </code>
-                    </div>
-                    
-                    {/* Variables in this command */}
-                    {variables.length > 0 && (
-                      <div className="mb-3">
-                        <div className="flex flex-wrap gap-1">
-                          {variables.map((variable, varIndex) => (
-                            <span
-                              key={varIndex}
-                              className={`px-2 py-0.5 rounded text-xs ${
-                                commandVariables[variable] 
-                                  ? (isDarkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800')
-                                  : (isDarkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800')
-                              }`}
-                            >
-                              {variable}: {commandVariables[variable] || 'Not set'}
-                            </span>
-                          ))}
-                        </div>
-            </div>
-                    )}
-                    
-                    {/* Documentation */}
-                    {row.Page && (
-                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                          <button
-                            onClick={() => {
-                              openLateralWindow(row.Command);
-                            }}
-                            className={`text-xs ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} underline`}
-                          >
-                            📖 View Documentation
-                          </button>
-                        </div>
-            </div>
-          )}
-        </div>
-                );
-              })}
-              
-              {tagFilteredData.length === 0 && (
-                <div className={`text-center py-12 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg border border-gray-200 dark:border-gray-700`}>
-                  <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                    No tools found for the selected category.
-                  </p>
-              </div>
-              )}
-            </div>
-            </div>
-          )}
-
-        {/* Stats */}
-        {selectedTag && (
-          <div className="mt-4">
-            <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'} rounded border p-3`}>
-              <div className={`flex flex-wrap gap-4 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                <span>{tagFilteredData.length} tools in {selectedTag}</span>
-                <span>{allTags.length} categories total</span>
-              {searchTerm && (
-                  <span>Search: "{searchTerm}"</span>
-              )}
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Lateral Window for Markdown Documentation */}
-      {lateralWindowOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div 
-            className="flex-1 bg-black bg-opacity-50"
-            onClick={() => setLateralWindowOpen(false)}
-          />
-          
-          {/* Lateral Window */}
-          <div className={`w-full max-w-2xl ${isDarkMode ? 'bg-gray-900' : 'bg-white'} shadow-2xl flex flex-col`}>
-            {/* Header */}
-            <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b px-6 py-4 flex items-center justify-between`}>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setLateralWindowOpen(false)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode 
-                      ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {lateralWindowTitle}
-                </h2>
-              </div>
+            {/* Controles */}
+            <div className="flex items-center space-x-2">
+              {/* View Mode Toggle */}
               <button
-                onClick={() => setLateralWindowOpen(false)}
-                className={`p-2 rounded-lg transition-colors ${
-                  isDarkMode 
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                onClick={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    viewMode: prev.viewMode === "grid" ? "list" : "grid",
+                  }))
+                }
+                className={`p-2 rounded-lg ${ANIMATION_CONFIG.transition} ${
+                  state.viewMode === "grid"
+                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400"
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
+                title={
+                  state.viewMode === "grid"
+                    ? UI_TEXTS.navigation.toggleCategories
+                    : UI_TEXTS.navigation.toggleCategories
+                }
               >
-                <X className="w-5 h-5" />
+                {state.viewMode === "grid" ? (
+                  <Grid className="h-5 w-5" />
+                ) : (
+                  <List className="h-5 w-5" />
+                )}
+              </button>
+
+              {/* Refresh Button */}
+              <button
+                onClick={forceRefresh}
+                className={`p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ${ANIMATION_CONFIG.transition}`}
+                title={UI_TEXTS.navigation.refreshData}
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+
+              {/* Variables Toggle */}
+              <button
+                onClick={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    showVariables: !prev.showVariables,
+                  }))
+                }
+                className={`p-2 rounded-lg ${ANIMATION_CONFIG.transition} ${
+                  state.showVariables
+                    ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400"
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+                title={UI_TEXTS.navigation.toggleVariables}
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+
+              {/* Theme Toggle */}
+              <button
+                onClick={handleThemeToggle}
+                className={`p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ${ANIMATION_CONFIG.transition}`}
+                title={UI_TEXTS.navigation.toggleTheme}
+              >
+                {state.isDarkMode ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
               </button>
             </div>
-            
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <div className={`prose prose-sm max-w-none ${
-                isDarkMode 
-                  ? 'prose-invert prose-gray' 
-                  : 'prose-gray'
-              }`}>
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code: ({ className, children, ...props }: any) => {
-                      const isInline = !className?.includes('language-');
-                      
-                      if (isInline) {
-                        return (
-                          <code 
-                            className={`px-1.5 py-0.5 rounded text-sm font-mono ${
-                              isDarkMode 
-                                ? 'bg-gray-800 text-green-400' 
-                                : 'bg-gray-100 text-green-600'
-                            }`}
-                            {...props}
-                          >
-                            {children}
-                          </code>
-                        );
-                      }
-                      return (
-                        <pre className={`${isDarkMode ? 'bg-black border-gray-700' : 'bg-black border-gray-600'} border rounded-lg p-4 overflow-x-auto`}>
-                          <code 
-                            className={`text-sm font-mono ${
-                              isDarkMode ? 'text-green-400' : 'text-green-400'
-                            }`}
-                            {...props}
-                          >
-                            ~$ {children}
-                          </code>
-                        </pre>
-                      );
-                      },
-                    h1: ({ children }) => (
-                      <h1 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {children}
-                      </h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className={`text-xl font-semibold mb-3 mt-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {children}
-                      </h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className={`text-lg font-medium mb-2 mt-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {children}
-                      </h3>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className={`mb-3 ml-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {children}
-                      </ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className={`mb-3 ml-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {children}
-                      </ol>
-                    ),
-                    li: ({ children }) => {
-                      const content = children?.toString() || '';
-                      // Check if this is a tag list item
-                      if (content.match(/^[A-Za-z\s]+$/)) {
-                        return (
-                          <li className="mb-1">
-                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${isDarkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-100 text-blue-800'} mr-1 mb-1`}>
-                              {children}
-                            </span>
-                          </li>
-                        );
-                      }
-                      return (
-                        <li className={`mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                          {children}
-                        </li>
-                      );
-                    },
-                    strong: ({ children }) => (
-                      <strong className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {children}
-                      </strong>
-                    ),
-                    em: ({ children }) => (
-                      <em className={`italic ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {children}
-                      </em>
-                    ),
-                    blockquote: ({ children }) => (
-                      <blockquote className={`border-l-4 pl-4 my-4 ${
-                        isDarkMode 
-                          ? 'border-gray-600 text-gray-300' 
-                          : 'border-gray-300 text-gray-600'
-                      }`}>
-                        {children}
-                      </blockquote>
-                    ),
-                    a: ({ href, children }) => (
-                      <a 
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`underline ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}`}
-                      >
-                        {children}
-                      </a>
-                    ),
-                    p: ({ children }) => (
-                      <p className={`mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {children}
-                      </p>
-                    ),
-                  }}
-                >
-                  {lateralWindowContent}
-                </ReactMarkdown>
-              </div>
-            </div>
           </div>
         </div>
-      )}
+      </header>
+
+      {/* Variables Panel */}
+      <Suspense
+        fallback={<div className="p-4 text-center">Cargando variables...</div>}
+      >
+        <VariablesPanel
+          isDarkMode={state.isDarkMode}
+          showVariables={state.showVariables}
+          commandVariables={state.commandVariables}
+          setCommandVariables={(vars) =>
+            setState((prev) => ({ ...prev, commandVariables: vars }))
+          }
+          updateVariable={updateVariable}
+          availableVariables={availableVariables}
+        />
+      </Suspense>
+
+      {/* Main Content */}
+      <main
+        className={`${LAYOUT_CONFIG.maxWidth} mx-auto ${LAYOUT_CONFIG.padding.mobile} ${LAYOUT_CONFIG.padding.tablet} ${LAYOUT_CONFIG.padding.desktop} py-6`}
+      >
+        {/* Search and Filters - Mostrar siempre el buscador inteligente */}
+        <div
+          className={`rounded-lg p-6 mb-8 ${ANIMATION_CONFIG.transition} ${
+            state.isDarkMode ? "bg-gray-800" : "bg-white"
+          } shadow-sm border ${
+            state.isDarkMode ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            {/* Smart Search Bar with Tag Suggestions */}
+            <Suspense
+              fallback={
+                <div className="flex-1 max-w-lg h-12 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+              }
+            >
+              <SmartSearchBar
+                isDarkMode={state.isDarkMode}
+                globalSearch={state.globalSearch}
+                onSearchChange={handleSearchChange}
+                onTagSelect={handleTagSelect}
+                allTags={allTags}
+                selectedSection={state.selectedSection}
+                sectionData={sectionData}
+              />
+            </Suspense>
+
+            {/* Sort and Filter Controls */}
+            <div className="flex items-center space-x-4">
+              <select
+                value={state.sortBy}
+                onChange={(e) =>
+                  setState((prev) => ({
+                    ...prev,
+                    sortBy: e.target.value as any,
+                  }))
+                }
+                className={`px-3 py-2 rounded-lg border ${
+                  ANIMATION_CONFIG.transition
+                } ${
+                  state.isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
+                // style={{ "pointer-events": "none" }}
+              >
+                <option value="name">Ordenar: Nombre</option>
+                <option value="category">Ordenar: Categoría</option>
+                <option value="popularity">Ordenar: Popularidad</option>
+                <option value="section">Ordenar: Sección</option>
+              </select>
+              {state.lastUpdated && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {UI_TEXTS.stats.lastUpdated}:{" "}
+                  {state.lastUpdated.toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Selected Filters Display */}
+          {(state.selectedTag || state.selectedSection) && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {state.selectedSection && (
+                <div className="flex items-center space-x-2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full">
+                  <span className="text-sm font-medium">
+                    Sección:{" "}
+                    {DASHBOARD_SECTIONS[state.selectedSection]?.displayName}
+                  </span>
+                  <button
+                    onClick={() => handleSectionSelect(null)}
+                    className="p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 rounded"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+              {state.selectedTag && (
+                <div className="flex items-center space-x-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-3 py-1 rounded-full">
+                  <span className="text-sm font-medium">
+                    Tag: {state.selectedTag}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setState((prev) => ({ ...prev, selectedTag: "" }))
+                    }
+                    className="p-0.5 hover:bg-green-200 dark:hover:bg-green-800 rounded"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Loading State */}
+        {state.loading && <LoadingSpinner />}
+
+        {/* Error State */}
+        {state.error && <ErrorMessage message={state.error} />}
+
+        {/* Content Area */}
+        {!state.loading && !state.error && (
+          <>
+            {/* Sections Overview */}
+            <SectionsOverview />
+
+            {/* Search Results or Selected Section Content */}
+            {(state.selectedSection ||
+              debouncedSearch ||
+              state.selectedTag) && (
+              <>
+                {/* Results Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    {debouncedSearch && (
+                      <h2 className="text-2xl font-bold mb-2">
+                        Resultados para "{debouncedSearch}"
+                      </h2>
+                    )}
+                    {state.selectedSection && !debouncedSearch && (
+                      <h2 className="text-2xl font-bold mb-2">
+                        {DASHBOARD_SECTIONS[state.selectedSection]?.displayName}
+                      </h2>
+                    )}
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {filteredData.length}{" "}
+                      {filteredData.length === 1
+                        ? "comando encontrado"
+                        : "comandos encontrados"}
+                      {state.selectedSection && (
+                        <span className="ml-2 text-sm">
+                          •{" "}
+                          {
+                            DASHBOARD_SECTIONS[state.selectedSection]
+                              ?.description
+                          }
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Quick Stats */}
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <div className="flex items-center space-x-1">
+                      <BarChart3 className="h-4 w-4" />
+                      <span>{filteredData.length}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Results Grid/List */}
+                {filteredData.length === 0 ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      {UI_TEXTS.noResults}
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      Intenta con diferentes términos de búsqueda o selecciona
+                      otra sección
+                    </p>
+                    <button
+                      onClick={() =>
+                        setState((prev) => ({
+                          ...prev,
+                          globalSearch: "",
+                          selectedTag: "",
+                          selectedSection: null,
+                          showSections: true,
+                        }))
+                      }
+                      className={`inline-flex items-center space-x-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-lg ${ANIMATION_CONFIG.transition}`}
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>Ver todas las secciones</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`grid gap-6 ${
+                      state.viewMode === "grid"
+                        ? `${LAYOUT_CONFIG.gridCols.mobile} ${LAYOUT_CONFIG.gridCols.tablet} ${LAYOUT_CONFIG.gridCols.desktop}`
+                        : "grid-cols-1"
+                    }`}
+                  >
+                    {filteredData.map((item, index) => (
+                      <Suspense
+                        key={`${safeString(item.Command)}-${index}`}
+                        fallback={
+                          <div
+                            className={`p-6 ${ANIMATION_CONFIG.loading.pulse} bg-gray-200 dark:bg-gray-700 rounded-lg`}
+                          >
+                            <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+                          </div>
+                        }
+                      >
+                        <CommandCard
+                          item={item}
+                          isDarkMode={state.isDarkMode}
+                          viewMode={state.viewMode}
+                          replaceVariables={replaceVariables}
+                          copyToClipboard={copyToClipboard}
+                          getCategoryColors={getCategoryColors}
+                          onTagClick={handleTagSelect}
+                          selectedTag={state.selectedTag}
+                        />
+                      </Suspense>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
 };

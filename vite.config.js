@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import process from 'node:process';
 import fs from 'fs';
 import path from 'path';
-import {BASE_URL} from "./src/constants"
+import { FILE_PATHS } from "./src/constants"
 
 function generateDocsIndex() {
   try {
@@ -19,7 +19,7 @@ function generateDocsIndex() {
       if (filename.toLowerCase().endsWith('.csv')) {
         return { filename, title: filename.replace(/\.csv$/i, '') };
       }
-      
+
       const base = filename.replace(/\.md$/i, '');
       // Remove trailing space + hash if present
       const title = base.replace(/\s[0-9a-fA-F]+$/i, '');
@@ -44,7 +44,7 @@ function generateDocsIndex() {
 }
 
 export default defineConfig({
-  base: BASE_URL,
+  base: FILE_PATHS.baseUrl,
   plugins: [
     {
       name: 'docs-index-generator',

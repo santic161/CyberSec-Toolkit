@@ -1,24 +1,537 @@
-@config "../tailwind.config.js";
+/* ========================================================================================
+   ESTILOS CSS PRINCIPALES - CYBERSEC DASHBOARD
+   ======================================================================================== */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    font-feature-settings: "rlig" 1, "calt" 1;
+/* ========================================================================================
+   VARIABLES CSS PERSONALIZADAS
+   ======================================================================================== */
+:root {
+  /* Colores principales */
+  --color-primary: #3b82f6;
+  --color-secondary: #10b981;
+  --color-accent: #f59e0b;
+  --color-danger: #ef4444;
+  --color-warning: #f97316;
+
+  /* Espaciado y dimensiones */
+  --spacing-header-height: 4rem;
+  --spacing-sidebar-width: 16rem;
+  --border-radius-base: 0.5rem;
+  --border-radius-large: 0.75rem;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* Transiciones */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 200ms ease-in-out;
+  --transition-slow: 300ms ease-in-out;
+}
+
+/* Variables para modo oscuro */
+:root.dark {
+  --color-bg-primary: #111827;
+  --color-bg-secondary: #1f2937;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #9ca3af;
+}
+
+/* ========================================================================================
+   RESET Y ESTILOS BASE
+   ======================================================================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  line-height: 1.5;
+  color: #374151;
+  background-color: #f9fafb;
+  transition: background-color var(--transition-normal),
+    color var(--transition-normal);
+}
+
+/* ========================================================================================
+   UTILIDADES PERSONALIZADAS
+   ======================================================================================== */
+
+/* Line clamp utilities para textos truncados */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-5 {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-6 {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ========================================================================================
+   COMPONENTES REUTILIZABLES
+   ======================================================================================== */
+
+/* Botones con efectos avanzados */
+.btn {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border border-transparent transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply btn bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 active:bg-blue-800;
+}
+
+.btn-secondary {
+  @apply btn bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+}
+
+.btn-success {
+  @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 active:bg-green-800;
+}
+
+.btn-danger {
+  @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 active:bg-red-800;
+}
+
+.btn-warning {
+  @apply btn bg-yellow-600 text-white hover:bg-yellow-700 focus:ring-yellow-500 active:bg-yellow-800;
+}
+
+/* Tarjetas mejoradas */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200;
+}
+
+.card-hover {
+  @apply card hover:shadow-md hover:scale-[1.02] hover:border-gray-300 dark:hover:border-gray-600;
+}
+
+.card-interactive {
+  @apply card-hover cursor-pointer;
+}
+
+/* Inputs mejorados */
+.input {
+  @apply block w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-gray-100 transition-all duration-200;
+}
+
+.input:focus {
+  @apply outline-none ring-2 ring-blue-500 border-blue-500;
+}
+
+.input-error {
+  @apply input border-red-300 dark:border-red-700 ring-red-500 focus:border-red-500;
+}
+
+.input-success {
+  @apply input border-green-300 dark:border-green-700 ring-green-500 focus:border-green-500;
+}
+
+/* ========================================================================================
+   COMPONENTES ESPECÍFICOS DEL DASHBOARD
+   ======================================================================================== */
+
+/* Barra de búsqueda inteligente */
+.search-suggestions {
+  @apply absolute top-full left-0 right-0 z-50 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 border-t-0 rounded-b-lg shadow-lg max-h-80 overflow-y-auto;
+}
+
+.search-suggestion-item {
+  @apply w-full px-3 py-2 flex items-center justify-between text-left transition-all duration-150 hover:bg-gray-50 dark:hover:bg-gray-600;
+}
+
+.search-suggestion-item:hover,
+.search-suggestion-item.highlighted {
+  @apply bg-gray-50 dark:bg-gray-600;
+}
+
+.search-suggestion-item.highlighted {
+  @apply border-l-4 border-blue-500;
+}
+
+/* Tarjetas de comando con layout uniforme */
+.command-card {
+  @apply card-hover flex flex-col h-full;
+}
+
+.command-card-header {
+  @apply flex items-start justify-between mb-4;
+}
+
+.command-card-content {
+  @apply flex-1 mb-4;
+}
+
+.command-card-footer {
+  @apply p-6 pt-0 mt-auto;
+}
+
+.command-card-tags {
+  @apply mb-4;
+}
+
+/* Tarjetas de sección */
+.section-card {
+  @apply card-interactive overflow-hidden relative;
+}
+
+.section-card::before {
+  content: "";
+  @apply absolute inset-0 opacity-0 transition-opacity duration-200 pointer-events-none;
+  background: linear-gradient(
+    45deg,
+    rgba(59, 130, 246, 0.05),
+    rgba(16, 185, 129, 0.05)
+  );
+}
+
+.section-card:hover::before {
+  @apply opacity-100;
+}
+
+/* Panel de variables */
+.variables-panel {
+  @apply border-b transition-colors duration-200;
+}
+
+.variable-group {
+  @apply rounded-lg border transition-all duration-200;
+}
+
+.variable-input-group {
+  @apply p-4 rounded-lg border transition-all duration-200 hover:border-opacity-70;
+}
+
+/* Tags dinámicos */
+.tag {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer;
+}
+
+.tag:hover {
+  @apply scale-105;
+}
+
+.tag.selected {
+  @apply ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-800;
+}
+
+/* ========================================================================================
+   ANIMACIONES PERSONALIZADAS
+   ======================================================================================== */
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-@layer components {
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Slide down animation */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-down {
+  animation: slideDown 0.2s ease-out;
+}
+
+/* Scale in animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* Pulse animation mejorada */
+.pulse-subtle {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ========================================================================================
+   ESTADOS DE LOADING
+   ======================================================================================== */
+
+/* Skeleton loader */
+.skeleton {
+  @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+}
+
+.skeleton-text {
+  @apply skeleton h-4;
+}
+
+.skeleton-title {
+  @apply skeleton h-6;
+}
+
+.skeleton-avatar {
+  @apply skeleton h-10 w-10 rounded-full;
+}
+
+/* Spinner personalizado */
+.spinner {
+  @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
+}
+
+.spinner-lg {
+  @apply w-8 h-8 border-4;
+}
+
+/* ========================================================================================
+   UTILIDADES DE SCROLL
+   ======================================================================================== */
+
+/* Scrollbar personalizado */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800 rounded-full;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500;
+}
+
+/* Scroll suave */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* ========================================================================================
+   RESPONSIVE UTILITIES
+   ======================================================================================== */
+
+/* Container personalizado */
+.container-custom {
+  @apply mx-auto px-4 sm:px-6 lg:px-8;
+  max-width: 1280px; /* 7xl equivalente */
+}
+
+/* Grid responsive personalizado */
+.grid-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6;
+}
+
+/* Layout centrado con flexbox */
+.flex-grid-centered {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  align-content: flex-start;
+}
+
+/* Ancho fijo para tarjetas */
+.command-card-fixed {
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
+}
+
+/* Asegurar centrado perfecto */
+.centered-grid-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.centered-grid-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 100%;
+}
+
+/* ========================================================================================
+   UTILIDADES DE ACCESIBILIDAD
+   ======================================================================================== */
+
+/* Focus visible mejorado */
+.focus-visible {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800;
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ========================================================================================
+   UTILIDADES DE PRINT
+   ======================================================================================== */
+
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-visible {
+    display: block !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
   .card {
-    @apply bg-white rounded-lg shadow-sm border p-6;
+    border: 1px solid #000 !important;
+    box-shadow: none !important;
   }
-  
-  .btn-primary {
-    @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors;
-  }
-  
-  .btn-secondary {
-    @apply bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors;
-  }
+}
+
+/* ========================================================================================
+   MODO OSCURO ESPECÍFICO
+   ======================================================================================== */
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  @apply bg-gray-900 text-white;
+}
+
+/* Mejores colores para código en modo oscuro */
+.dark code {
+  color: #34d399; /* green-400 */
+}
+
+.command-title::hover {
+  color: #3b82f6; /* blue-500 */
+  overflow: visible;
+}
+
+/* ========================================================================================
+   OVERRIDES ESPECÍFICOS DE COMPONENTES
+   ======================================================================================== */
+
+/* Mejorar el contraste en sugerencias de búsqueda */
+.search-suggestions .highlighted {
+  @apply bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100;
+}
+
+/* Estilos para tooltips personalizados */
+.tooltip {
+  @apply absolute z-10 px-3 py-2 text-sm bg-gray-900 text-white rounded-lg shadow-lg opacity-0 transition-opacity duration-200 pointer-events-none;
+}
+
+.tooltip.show {
+  @apply opacity-100;
+}
+
+.tooltip::after {
+  content: "";
+  @apply absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900;
+}
+
+/* ========================================================================================
+   PERFORMANCE OPTIMIZATIONS
+   ======================================================================================== */
+
+/* Optimizar renderizado de listas largas */
+.virtual-list {
+  contain: layout style paint;
+}
+
+/* Optimizar animaciones para mejor performance */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* GPU acceleration para transiciones críticas */
+.gpu-accelerated {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }

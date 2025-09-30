@@ -1,0 +1,78 @@
+[
+  {
+    "filename": "BloodHound - Make all Digest 6fea05341997de40.md",
+    "title": "BloodHound - Make all Digest"
+  },
+  {
+    "filename": "Enum4Linux - Authenticated Enumeration 03f928bc1997de40.md",
+    "title": "Enum4Linux - Authenticated Enumeration"
+  },
+  {
+    "filename": "Enum4Linux - Unauthenticated Enumeration 7be174b51997de40.md",
+    "title": "Enum4Linux - Unauthenticated Enumeration"
+  },
+  {
+    "filename": "Evil-WinRm - Pass The Hash 34bd06691997de40.md",
+    "title": "Evil-WinRm - Pass The Hash"
+  },
+  {
+    "filename": "Impacket - GetNPUsers AS RepRosting 2f227eec1997de40.md",
+    "title": "Impacket - GetNPUsers AS RepRosting"
+  },
+  {
+    "filename": "Impacket - Kerberosting 099681d01997de40.md",
+    "title": "Impacket - Kerberosting"
+  },
+  {
+    "filename": "Impacket - SMBRelay 055765501997de40.md",
+    "title": "Impacket - SMBRelay"
+  },
+  {
+    "filename": "Kerbrute - Password Spraying 1865d43b1997de40.md",
+    "title": "Kerbrute - Password Spraying"
+  },
+  {
+    "filename": "Netexec - Enumerate Users via SMB 7d1b16031997de40.md",
+    "title": "Netexec - Enumerate Users via SMB"
+  },
+  {
+    "filename": "Netexec - Password Spraying 7ee963351997de40.md",
+    "title": "Netexec - Password Spraying"
+  },
+  {
+    "filename": "PsExec - Ruidoso intentar mltiples veces 106444bf1997de40.md",
+    "title": "PsExec - Ruidoso intentar mltiples veces"
+  },
+  {
+    "filename": "Responder - LLMNR Poisoning 70cf9cfa1997de40.md",
+    "title": "Responder - LLMNR Poisoning"
+  },
+  {
+    "filename": "SMBClient - Access share 6a2cd0031997de40.md",
+    "title": "SMBClient - Access share"
+  },
+  {
+    "filename": "SMBClient - List shares 2965f7aa1997de40.md",
+    "title": "SMBClient - List shares"
+  },
+  {
+    "filename": "SMBExec - No tan ruidoso 14ab7e291997de40.md",
+    "title": "SMBExec - No tan ruidoso"
+  },
+  {
+    "filename": "SMBMap - Enumerate shares 5d5945ef1997de40.md",
+    "title": "SMBMap - Enumerate shares"
+  },
+  {
+    "filename": "TEMPLATE TAGS 52b1e4011997de40.md",
+    "title": "TEMPLATE TAGS"
+  },
+  {
+    "filename": "Tools CMD Database 000182061997de40.csv",
+    "title": "Tools CMD Database 000182061997de40"
+  },
+  {
+    "filename": "WMIExec - No tan ruidoso 4da62c021997de40.md",
+    "title": "WMIExec - No tan ruidoso"
+  }
+]
