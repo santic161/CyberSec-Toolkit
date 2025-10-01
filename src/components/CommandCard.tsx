@@ -123,7 +123,7 @@ const CommandCard: React.FC<CommandCardProps> = memo(
                   <h3 className="text-lg font-semibold mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {item.Command}
                   </h3>
-                  <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400">
+                  {/* <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400">
                     {hasVariables && (
                       <div className="flex items-center space-x-1">
                         <Zap className="h-3 w-3 text-yellow-500" />
@@ -140,7 +140,7 @@ const CommandCard: React.FC<CommandCardProps> = memo(
                         <span>docs</span>
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </div>
               </div>
 

@@ -186,14 +186,6 @@ const SectionCard: React.FC<SectionCardProps> = memo(({
               </div>
             </div>
           </div>
-
-          {/* Popularity Indicator */}
-          <div className="flex items-center space-x-1 text-yellow-500">
-            <Star className="h-4 w-4 fill-current" />
-            <span className="text-sm font-medium">
-              {Math.round((count / Math.max(tools.length, 1)) * 100)}%
-            </span>
-          </div>
         </div>
 
         {/* Top Categories */}
