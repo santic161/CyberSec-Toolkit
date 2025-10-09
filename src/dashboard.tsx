@@ -13,39 +13,27 @@ import React, {
 } from "react";
 import Papa from "papaparse";
 import {
-  Search,
-  Filter,
-  Copy,
-  ExternalLink,
-  ChevronRight,
-  Settings,
-  Sun,
-  Moon,
-  Grid,
-  List,
-  TrendingUp,
-  Shield,
-  Activity,
-  Layers,
   AlertCircle,
+  ArrowRight,
+  BarChart3,
   CheckCircle,
-  RefreshCw,
-  Database,
-  Tag,
   ChevronDown,
   ChevronUp,
+  Copy,
+  Database,
   Eye,
-  Users,
-  Zap,
+  ExternalLink,
+  Filter,
+  Grid,
   Hash,
-  Globe,
-  Server,
-  BarChart3,
-  Filter as FilterIcon,
+  List,
+  Moon,
+  RefreshCw,
+  Settings,
+  Shield,
+  Sun,
+  Tag,
   X,
-  Star,
-  Clock,
-  ArrowRight,
 } from "lucide-react";
 
 // Lazy load components
@@ -57,21 +45,17 @@ const SmartSearchBar = React.lazy(() => import("./components/SmartSearchBar"));
 // Importar toda la configuración centralizada
 import {
   DASHBOARD_SECTIONS,
-  TAG_CATEGORIES,
-  CATEGORY_DISPLAY_CONFIG,
   CATEGORY_COLOR_THEMES,
   API_CONFIG,
   CACHE_CONFIG,
   FILE_PATHS,
   DEFAULT_VARIABLES,
-  VARIABLE_CONFIG,
   UI_TEXTS,
   LAYOUT_CONFIG,
   ANIMATION_CONFIG,
   DEBUG_CONFIG,
   getOrderedSections,
   getTagSection,
-  getSectionColors,
   type DashboardSection,
 } from "./constants";
 
@@ -244,6 +228,17 @@ const useDebounce = (value: string, delay: number) => {
   }, [value, delay]);
 
   return debouncedValue;
+};
+
+// Wrapper function to match SectionCard's expected signature
+const getSectionColorsForCard = (sectionKey: string, isDark: boolean) => {
+  const section = DASHBOARD_SECTIONS[sectionKey];
+  if (!section) return null;
+
+  return {
+    bg: isDark ? section.color.background.dark : section.color.background.light,
+    text: isDark ? section.color.text.dark : section.color.text.light,
+  };
 };
 
 // ========================================================================================
@@ -429,7 +424,7 @@ const Dashboard: React.FC = () => {
           console.log("CSV text loaded, length:", csvText.length);
         }
 
-        Papa.parse<Tool>(csvText, {
+        Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
           transformHeader: (header) => header.trim(),
@@ -838,7 +833,7 @@ const Dashboard: React.FC = () => {
                 sectionData={section}
                 isDarkMode={state.isDarkMode}
                 onSelect={() => handleSectionSelect(section.section.key)}
-                getSectionColors={getSectionColors}
+                getSectionColors={getSectionColorsForCard}
               />
             </Suspense>
           ))}

@@ -26,9 +26,9 @@ export const CACHE_CONFIG = {
 // RUTAS Y CONFIGURACIÓN DE ARCHIVOS
 // ========================================================================================
 export const FILE_PATHS = {
-  indexJson: "/Active-Directory-CheatSheet/docs/index.json",
-  docsPath: "/Active-Directory-CheatSheet/docs",
-  baseUrl: "/Active-Directory-CheatSheet",
+  baseUrl: "/CyberSec-Toolkit",
+  indexJson: `/CyberSec-Toolkit/docs/index.json`,
+  docsPath: `/CyberSec-Toolkit/docs`,
   csvFallback: "Tools-CMD-Database-000182061997de40.csv",
 } as const;
 
