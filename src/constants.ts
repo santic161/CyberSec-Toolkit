@@ -29,7 +29,7 @@ export const FILE_PATHS = {
   baseUrl: "/CyberSec-Toolkit",
   indexJson: `/CyberSec-Toolkit/docs/index.json`,
   docsPath: `/CyberSec-Toolkit/docs`,
-  csvFallback: "Tools-CMD-Database-000182061997de40.csv",
+  csvFallback: "Tools CMD Database 00018206199a1bae.csv",
 } as const;
 
 // ========================================================================================

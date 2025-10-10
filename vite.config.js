@@ -31,13 +31,6 @@ function generateDocsIndex() {
       JSON.stringify(index, null, 2),
       'utf-8'
     );
-
-    // Copy docs to dist
-    const distDocsDir = path.resolve(process.cwd(), 'dist', 'docs');
-    if (!fs.existsSync(distDocsDir)) {
-      fs.mkdirSync(distDocsDir, { recursive: true });
-    }
-    fs.cpSync(path.resolve(process.cwd(), 'docs'), distDocsDir, { recursive: true });
   } catch (e) {
     console.warn('Failed to generate docs index:', e);
   }
@@ -66,6 +59,29 @@ export default defineConfig({
       buildStart() {
         generateDocsIndex();
       },
+      writeBundle() {
+        // Copy docs folder to dist directory after build
+        const docsDir = path.resolve(process.cwd(), 'docs');
+        const distDocsDir = path.resolve(process.cwd(), 'dist', 'docs');
+        if (fs.existsSync(docsDir)) {
+          if (!fs.existsSync(distDocsDir)) {
+            fs.mkdirSync(distDocsDir, { recursive: true });
+          }
+          // Copy all files from docs to dist/docs
+          const files = fs.readdirSync(docsDir);
+          files.forEach(file => {
+            const srcPath = path.join(docsDir, file);
+            const destPath = path.join(distDocsDir, file);
+            const stats = fs.statSync(srcPath);
+            if (stats.isFile()) {
+              fs.copyFileSync(srcPath, destPath);
+            } else if (stats.isDirectory()) {
+              // For nested directories (if any)
+              fs.cpSync(srcPath, destPath, { recursive: true });
+            }
+          });
+        }
+      }
     },
     react(),
   ],

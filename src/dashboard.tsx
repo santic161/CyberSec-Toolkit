@@ -329,12 +329,6 @@ const Dashboard: React.FC = () => {
         }
       }
 
-      if (csvUrl && !csvUrl.startsWith("http")) {
-        if (csvUrl.startsWith("/")) {
-          csvUrl = window.location.origin + csvUrl;
-        }
-      }
-
       if (DEBUG_CONFIG.enableLogging) {
         console.log("CSV URL resolved to:", csvUrl);
       }
